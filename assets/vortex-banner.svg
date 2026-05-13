@@ -28,6 +28,6 @@
   <circle cx="220" cy="300" r="100" fill="#9b84f8" opacity="0.06"/>
   <text x="80" y="165" fill="#ffffff" font-family="ui-sans-serif, system-ui, Segoe UI, Helvetica, Arial, sans-serif" font-size="56" font-weight="700" letter-spacing="-0.02em">Vortex</text>
   <text x="80" y="218" fill="url(#accent)" font-family="ui-sans-serif, system-ui, Segoe UI, Helvetica, Arial, sans-serif" font-size="56" font-weight="700" letter-spacing="-0.02em">Bot Template</text>
-  <text x="80" y="275" fill="#a8b0d8" font-family="ui-sans-serif, system-ui, Segoe UI, Helvetica, Arial, sans-serif" font-size="22" font-weight="400">Discord.js control plane  slash commands, entitlements, dashboard, Stripe</text>
+  <text x="80" y="275" fill="#a8b0d8" font-family="ui-sans-serif, system-ui, Segoe UI, Helvetica, Arial, sans-serif" font-size="22" font-weight="400">Discord.js control plane — slash commands, entitlements, dashboard, Stripe</text>
   <rect x="80" y="300" width="280" height="4" rx="2" fill="url(#accent)" opacity="0.9"/>
 </svg>
