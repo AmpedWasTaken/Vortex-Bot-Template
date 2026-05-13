@@ -21,6 +21,7 @@ export interface GuildSettingsDoc {
   guildId: string;
   modRoleIds: string[];
   adminRoleIds: string[];
+  logChannelId?: string;
 }
 
 export interface IGuildSettingsService {
