@@ -1,0 +1,12 @@
+node_modules
+dist
+.env
+.env.local
+*.log
+data/
+*.sqlite
+.DS_Store
+dashboard/.next
+dashboard/out
+dashboard/node_modules
+coverage

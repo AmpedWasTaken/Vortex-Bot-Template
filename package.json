@@ -1,0 +1,48 @@
+{
+  "name": "vortex-bot-template",
+  "version": "1.0.0",
+  "description": "Production-ready Discord.js v14 bot framework — monetizable, SaaS-ready, and community-scale.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.10.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "register-commands": "tsx src/scripts/registerCommands.ts"
+  },
+  "keywords": [
+    "discord",
+    "discord.js",
+    "bot",
+    "typescript",
+    "mongodb",
+    "mongoose",
+    "template",
+    "vortex"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "chalk": "^5.4.1",
+    "discord.js": "^14.17.3",
+    "dotenv": "^16.4.7",
+    "mongoose": "^8.9.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.10.5",
+    "eslint": "^9.18.0",
+    "eslint-config-prettier": "^10.0.1",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.20.0"
+  }
+}
