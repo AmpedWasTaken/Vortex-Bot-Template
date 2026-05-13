@@ -1,5 +1,7 @@
 import 'dotenv/config';
 
+import { loadIntentConfig, type IntentConfig } from './intents.js';
+
 export type NodeEnv = 'development' | 'production' | 'test';
 export type DatabaseMode = 'mongo' | 'sqlite' | 'mock';
 
@@ -34,6 +36,7 @@ export interface AppConfig {
      */
     devEntitlementBypass: boolean;
   };
+  intents: IntentConfig;
 }
 
 function parseList(raw: string | undefined): string[] {
@@ -115,6 +118,7 @@ export function loadConfig(): AppConfig {
       premiumSkuIds: parseList(process.env['PREMIUM_SKU_IDS']),
       devEntitlementBypass: process.env['DEV_ENTITLEMENT_BYPASS'] === 'true',
     },
+    intents: loadIntentConfig(),
   };
 }
 

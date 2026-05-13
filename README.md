@@ -33,29 +33,30 @@ If you are shipping a bot with **paid tiers**, **multi-tenant guild settings**, 
 
 ## Feature tour
 
-| Area | What you get |
-| --- | --- |
-| 🧩 **Slash commands** | `src/commands` modules export a `command` object — no central switch statement. |
-| ⚡ **Auto loaders** | Commands and events are imported dynamically from disk (works in `dist/` after build). |
-| 🛡️ **Permissions** | `hasPermission()` blends Administrator / Manage Guild checks with env + per-guild role lists. |
-| 🪵 **Logging** | Levels (`debug`, `info`, `warn`, `error`), metadata objects, optional Discord log channel. |
-| 🗄️ **Persistence** | Per-guild settings document with Mongo + SQLite + mock parity. |
-| 🐳 **Docker** | Multi-stage image + Compose wiring for MongoDB. |
-| 🖥️ **Dashboard** | `dashboard/` Next.js 15 starter with a premium dark landing stub. |
+| Area                   | What you get                                                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------- |
+| 🧩 **Slash commands**  | `src/commands` modules export a `command` object — no central switch statement.                               |
+| ⚡ **Auto loaders**    | Commands and events are imported dynamically from disk (works in `dist/` after build).                        |
+| 🛡️ **Permissions**     | `hasPermission()` blends Administrator / Manage Guild checks with env + per-guild role lists.                 |
+| 🪵 **Logging**         | Levels (`debug`, `info`, `warn`, `error`), metadata objects, optional Discord log channel.                    |
+| 🗄️ **Persistence**     | Per-guild settings document with Mongo + SQLite + mock parity.                                                |
+| 🐳 **Docker**          | Multi-stage image + Compose wiring for MongoDB.                                                               |
+| 🖥️ **Dashboard**       | `dashboard/` Next.js 15 starter with a premium dark landing stub.                                             |
+| 📊 **Polls + AutoMod** | `/poll` create/end, poll vote logging, and `autoModerationActionExecution` wiring with optional rule helpers. |
 
 ---
 
 ## Tech stack
 
-| Layer | Choice |
-| --- | --- |
-| Runtime | Node.js 20+ (LTS aligned) |
-| Language | TypeScript (`strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`) |
-| Discord SDK | `discord.js` v14 |
-| Config | `dotenv` + typed accessors in `src/config` |
-| Database | `mongoose` (MongoDB) + `better-sqlite3` (embedded fallback) + in-memory mock |
-| Tooling | ESLint 9 (flat config) + Prettier |
-| Optional UI | Next.js 15 + React 19 (`dashboard/`) |
+| Layer       | Choice                                                                          |
+| ----------- | ------------------------------------------------------------------------------- |
+| Runtime     | Node.js 20+ (LTS aligned)                                                       |
+| Language    | TypeScript (`strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`) |
+| Discord SDK | `discord.js` v14                                                                |
+| Config      | `dotenv` + typed accessors in `src/config`                                      |
+| Database    | `mongoose` (MongoDB) + `better-sqlite3` (embedded fallback) + in-memory mock    |
+| Tooling     | ESLint 9 (flat config) + Prettier                                               |
+| Optional UI | Next.js 15 + React 19 (`dashboard/`)                                            |
 
 ---
 
@@ -72,10 +73,10 @@ If you are shipping a bot with **paid tiers**, **multi-tenant guild settings**, 
 │   ├── commands/                 # Slash command modules (export `command`)
 │   ├── events/                   # Discord event modules (export `event`)
 │   ├── handlers/                 # Command registry, execution, event wiring
-│   ├── services/                 # Logger, guild settings, entitlements, SQLite helpers
+│   ├── services/                 # Logger, guild settings, entitlements, AutoMod helpers, SQLite store
 │   ├── models/                   # Mongoose schemas
 │   ├── context/                  # Request-scoped bot context accessors
-│   ├── config/                   # Typed environment configuration
+│   ├── config/                   # Typed environment configuration + gateway intent toggles
 │   ├── utils/                    # Banner, shutdown, permissions helpers
 │   ├── types/                    # Shared contracts (`BotCommand`, `BotEvent`, …)
 │   └── index.ts                  # Bootstrap + graceful shutdown
@@ -100,8 +101,10 @@ npm run dev
 > **Discord developer portal checklist**
 >
 > 1. Create an application, reset the bot token, and copy the **Application ID** (`DISCORD_CLIENT_ID`).
-> 2. Enable the **Server Members Intent** if you rely on `guildMemberAdd` / member permission hydration.
-> 3. Invite the bot with `applications.commands` + `bot` scopes.
+> 2. Under **Bot → Privileged Gateway Intents**, enable only what you turn on in `.env` (see the [Gateway intents](#gateway-intents) matrix — mismatches cause silent missing events or review friction).
+> 3. Enable **Server Members Intent** if `INTENT_GUILD_MEMBERS=true` (member joins, `guildMemberAdd`, and member fetches for permission checks).
+> 4. Enable **Message Content Intent** only if `INTENT_MESSAGE_CONTENT=true` (privileged; most bots do not need it).
+> 5. Invite the bot with `applications.commands` + `bot` scopes. For **user-installable** apps, also configure **Installation Contexts** in the portal and read [Installation contexts & command scope](#installation-contexts--command-scope).
 
 ---
 
@@ -141,37 +144,69 @@ MOD_ROLE_IDS=
 # Monetization — Application Entitlements
 PREMIUM_SKU_IDS=
 DEV_ENTITLEMENT_BYPASS=false
+
+# Gateway intents — must match the Developer Portal (see README)
+INTENT_GUILD_MEMBERS=true
+INTENT_AUTOMOD_EXECUTION=true
+INTENT_GUILD_MESSAGE_POLLS=true
+INTENT_MESSAGE_CONTENT=false
 ```
+
+### Installation contexts & command scope
+
+Discord distinguishes **where the app can be installed** (guild vs user “Use Application”) from **where slash commands are registered** (per-guild vs global). This template keeps registration logic in one place:
+
+| Concern                             | How Vortex handles it                                                                                                                                                                                                                                                                               |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Guild vs global REST body**       | If `DISCORD_GUILD_ID` is set, `registerSlashCommands` uses `applicationGuildCommands` (instant updates, guild-only installs). If it is empty, commands register globally via `applicationCommands` (up to ~1 hour propagation).                                                                     |
+| **When commands sync**              | Same as before: `DISCORD_GUILD_ID` **or** `REGISTER_SLASH_ON_READY=true` on startup, otherwise run `npm run register-commands`.                                                                                                                                                                     |
+| **User-installed / secondary apps** | Configure **Installation contexts** and linked applications in the [Developer Portal](https://discord.com/developers/applications). Each OAuth **application id** has its own command registration surface; use separate deployments or env files per client id if you ship a secondary linked app. |
+| **Runtime context**                 | In discord.js v14+, inspect `interaction.context` / `interaction.authorizingIntegrationOwners` when you need to branch DM vs guild behavior for the same command tree.                                                                                                                              |
+
+---
+
+## Gateway intents
+
+`src/config/intents.ts` maps `.env` toggles to `GatewayIntentBits` for `new Client({ intents })`. **`Guilds` is always requested** so the bot can resolve guild metadata.
+
+| `.env` flag                       | `GatewayIntentBits`       | Used by this template                                                                                            |
+| --------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `INTENT_GUILD_MEMBERS=true`       | `GuildMembers`            | `guildMemberAdd` event; `interaction.guild.members.fetch` in slash permission checks.                            |
+| `INTENT_AUTOMOD_EXECUTION=true`   | `AutoModerationExecution` | `autoModerationActionExecution` event (community AutoMod analytics).                                             |
+| `INTENT_GUILD_MESSAGE_POLLS=true` | `GuildMessagePolls`       | `messagePollVoteAdd` / `messagePollVoteRemove` (poll vote analytics).                                            |
+| `INTENT_MESSAGE_CONTENT=true`     | `MessageContent`          | **Privileged.** Raw message body in message events — leave `false` unless you truly need non-slash message text. |
+
+Keep these flags aligned with **Bot → Privileged Gateway Intents** in the Developer Portal. Discord may flag or disable bots that request privileged intents without using them.
 
 ### Slash command registration strategies
 
-| Mode | When to use |
-| --- | --- |
-| `DISCORD_GUILD_ID` set | Instant guild command updates (ideal for dev/staging). |
-| `REGISTER_SLASH_ON_READY=true` | Force global/guild sync whenever the bot starts. |
-| `npm run register-commands` | One-shot REST registration — best for production CI/CD. |
+| Mode                           | When to use                                             |
+| ------------------------------ | ------------------------------------------------------- |
+| `DISCORD_GUILD_ID` set         | Instant guild command updates (ideal for dev/staging).  |
+| `REGISTER_SLASH_ON_READY=true` | Force global/guild sync whenever the bot starts.        |
+| `npm run register-commands`    | One-shot REST registration — best for production CI/CD. |
 
 ---
 
 ## Scripts
 
-| Script | Purpose |
-| --- | --- |
-| `npm run dev` | `tsx` watch mode for rapid iteration |
-| `npm run build` | Emit `dist/` with `tsc` |
-| `npm start` | Run compiled bot (`node dist/index.js`) |
-| `npm run register-commands` | Push slash definitions to Discord |
-| `npm run lint` / `npm run format` | Static analysis + Prettier |
+| Script                            | Purpose                                 |
+| --------------------------------- | --------------------------------------- |
+| `npm run dev`                     | `tsx` watch mode for rapid iteration    |
+| `npm run build`                   | Emit `dist/` with `tsc`                 |
+| `npm start`                       | Run compiled bot (`node dist/index.js`) |
+| `npm run register-commands`       | Push slash definitions to Discord       |
+| `npm run lint` / `npm run format` | Static analysis + Prettier              |
 
 ---
 
 ## Database modes
 
-| `DATABASE_MODE` | Behavior |
-| --- | --- |
-| `mongo` | Persists guild settings in MongoDB via Mongoose (`src/models/GuildSettings.ts`). |
-| `sqlite` | Embedded `better-sqlite3` store under `SQLITE_PATH` (great for single-node SaaS tenants). |
-| `mock` | In-memory `Map` — perfect for CI, prototyping, or local UI work without infra. |
+| `DATABASE_MODE` | Behavior                                                                                  |
+| --------------- | ----------------------------------------------------------------------------------------- |
+| `mongo`         | Persists guild settings in MongoDB via Mongoose (`src/models/GuildSettings.ts`).          |
+| `sqlite`        | Embedded `better-sqlite3` store under `SQLITE_PATH` (great for single-node SaaS tenants). |
+| `mock`          | In-memory `Map` — perfect for CI, prototyping, or local UI work without infra.            |
 
 ---
 
@@ -196,14 +231,16 @@ docker run --env-file .env vortex-bot
 
 ## Example slash commands
 
-| Command | Description |
-| --- | --- |
-| `/ping latency` | Shows gateway ping (subcommand demo). |
-| `/ping echo` | Echoes a string option (modal-less interaction demo). |
-| `/vortex about` | Prints runtime + database mode metadata. |
-| `/premium status` | Lists active SKU IDs on the interaction + configured `PREMIUM_SKU_IDS`. |
-| `/premium demo` | Subcommand-level check using `interaction.entitlements` + your SKU list. |
-| `/vip` | Top-level example of `BotCommand.requiresPaidSkus` (handler gate before `execute`). |
+| Command                      | Description                                                                                                           |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `/ping latency`              | Shows gateway ping (subcommand demo).                                                                                 |
+| `/ping echo`                 | Echoes a string option (modal-less interaction demo).                                                                 |
+| `/vortex about`              | Prints runtime + database mode metadata.                                                                              |
+| `/vortex components2`        | Ephemeral reply built with **Components v2** (`MessageFlags.IsComponentsV2` + top-level `Container` / `TextDisplay`). |
+| `/poll create` / `/poll end` | Native **message polls** (`PollLayoutType.Default`) — moderator-gated showcase.                                       |
+| `/premium status`            | Lists active SKU IDs on the interaction + configured `PREMIUM_SKU_IDS`.                                               |
+| `/premium demo`              | Subcommand-level check using `interaction.entitlements` + your SKU list.                                              |
+| `/vip`                       | Top-level example of `BotCommand.requiresPaidSkus` (handler gate before `execute`).                                   |
 
 Add new commands by cloning `examples/ping-command.example.ts` into `src/commands/` and re-running `npm run register-commands` (or rely on guild-scoped auto registration during development).
 

@@ -1,6 +1,7 @@
 import { performance } from 'node:perf_hooks';
-import { Client, GatewayIntentBits, REST } from 'discord.js';
+import { Client, REST } from 'discord.js';
 import { assertDatabaseConfig, assertDiscordConfig, loadConfig } from './config/index.js';
+import { resolveGatewayIntents } from './config/intents.js';
 import { clearBotContext, setBotContext } from './context/botContext.js';
 import {
   eventsDirectory,
@@ -32,7 +33,7 @@ async function bootstrap(): Promise<void> {
   const events = await loadEventsFromDirectory(eventsDirectory());
 
   const client = new Client({
-    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
+    intents: resolveGatewayIntents(config.intents),
   });
 
   const rest = new REST({ version: '10' }).setToken(config.discord.token);
