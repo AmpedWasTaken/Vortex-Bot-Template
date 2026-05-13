@@ -70,6 +70,26 @@ export async function handleChatInputCommand(
       return;
     }
 
+    if (command.requiresPaidSkus) {
+      const skuIds = ctx.config.monetization.premiumSkuIds;
+      if (skuIds.length === 0) {
+        await interaction.reply({
+          content:
+            'Premium SKUs are not configured. Set `PREMIUM_SKU_IDS` in your environment (comma-separated snowflakes).',
+          ephemeral: true,
+        });
+        return;
+      }
+      if (!ctx.entitlements.interactionHasPremiumSku(interaction)) {
+        await interaction.reply({
+          content:
+            'This command requires an active premium entitlement for this app. Purchase or assign a SKU in the Developer Portal, then try again.',
+          ephemeral: true,
+        });
+        return;
+      }
+    }
+
     await command.execute(interaction, ctx);
   });
 }

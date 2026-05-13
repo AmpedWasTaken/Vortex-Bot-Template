@@ -72,7 +72,7 @@ If you are shipping a bot with **paid tiers**, **multi-tenant guild settings**, 
 │   ├── commands/                 # Slash command modules (export `command`)
 │   ├── events/                   # Discord event modules (export `event`)
 │   ├── handlers/                 # Command registry, execution, event wiring
-│   ├── services/                 # Logger, guild settings, SQLite helpers
+│   ├── services/                 # Logger, guild settings, entitlements, SQLite helpers
 │   ├── models/                   # Mongoose schemas
 │   ├── context/                  # Request-scoped bot context accessors
 │   ├── config/                   # Typed environment configuration
@@ -137,6 +137,10 @@ REGISTER_SLASH_ON_READY=false
 # Permissions — comma-separated role IDs (optional; Administrator permission still counts as admin)
 ADMIN_ROLE_IDS=
 MOD_ROLE_IDS=
+
+# Monetization — Application Entitlements
+PREMIUM_SKU_IDS=
+DEV_ENTITLEMENT_BYPASS=false
 ```
 
 ### Slash command registration strategies
@@ -197,8 +201,21 @@ docker run --env-file .env vortex-bot
 | `/ping latency` | Shows gateway ping (subcommand demo). |
 | `/ping echo` | Echoes a string option (modal-less interaction demo). |
 | `/vortex about` | Prints runtime + database mode metadata. |
+| `/premium status` | Lists active SKU IDs on the interaction + configured `PREMIUM_SKU_IDS`. |
+| `/premium demo` | Subcommand-level check using `interaction.entitlements` + your SKU list. |
+| `/vip` | Top-level example of `BotCommand.requiresPaidSkus` (handler gate before `execute`). |
 
 Add new commands by cloning `examples/ping-command.example.ts` into `src/commands/` and re-running `npm run register-commands` (or rely on guild-scoped auto registration during development).
+
+---
+
+## Monetization (Application Entitlements)
+
+Vortex tracks **`entitlementCreate`**, **`entitlementUpdate`**, and **`entitlementDelete`** in `src/services/entitlements.ts`, normalizing each record to `{ id, skuId, userId, guildId, type, deleted, consumed, isActive }` for logs and future webhooks.
+
+- Set **`PREMIUM_SKU_IDS`** (comma-separated snowflakes) to the SKU(s) you sell in the Discord Developer Portal.
+- **`DEV_ENTITLEMENT_BYPASS=true`** (non-production only) lets you test `/vip` without live entitlements.
+- **`interaction.entitlements`** is the source of truth for **slash gating**; the gateway cache is for observability and later HTTP flows.
 
 ---
 

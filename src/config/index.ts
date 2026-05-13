@@ -25,6 +25,15 @@ export interface AppConfig {
     adminRoleIds: string[];
     modRoleIds: string[];
   };
+  monetization: {
+    /** SKUs treated as "premium" for slash gating (comma-separated snowflakes). */
+    premiumSkuIds: string[];
+    /**
+     * When true and not in production, `requiresPaidSkus` commands succeed without Discord entitlements.
+     * Never enable in production.
+     */
+    devEntitlementBypass: boolean;
+  };
 }
 
 function parseList(raw: string | undefined): string[] {
@@ -101,6 +110,10 @@ export function loadConfig(): AppConfig {
     permissions: {
       adminRoleIds: parseList(process.env['ADMIN_ROLE_IDS']),
       modRoleIds: parseList(process.env['MOD_ROLE_IDS']),
+    },
+    monetization: {
+      premiumSkuIds: parseList(process.env['PREMIUM_SKU_IDS']),
+      devEntitlementBypass: process.env['DEV_ENTITLEMENT_BYPASS'] === 'true',
     },
   };
 }

@@ -8,6 +8,7 @@ import {
   registerEvents,
 } from './handlers/eventLoader.js';
 import { commandsDirectory, loadCommandsFromDirectory } from './handlers/commandRegistry.js';
+import { createEntitlementService } from './services/entitlements.js';
 import { createGuildSettingsService } from './services/guildSettings.js';
 import { createLogger } from './services/logger.js';
 import { printBanner } from './utils/banner.js';
@@ -26,6 +27,7 @@ async function bootstrap(): Promise<void> {
   }
 
   const guildSettings = await createGuildSettingsService(config);
+  const entitlements = createEntitlementService(config, logger);
   const commands = await loadCommandsFromDirectory(commandsDirectory());
   const events = await loadEventsFromDirectory(eventsDirectory());
 
@@ -39,6 +41,7 @@ async function bootstrap(): Promise<void> {
     config,
     logger,
     guildSettings,
+    entitlements,
     commands,
     rest,
     startedAt,

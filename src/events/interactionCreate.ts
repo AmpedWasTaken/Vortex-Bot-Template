@@ -9,12 +9,13 @@ import type { BotEvent, CommandContext } from '../types/index.js';
 export const event: BotEvent<typeof Events.InteractionCreate> = {
   name: Events.InteractionCreate,
   async execute(interaction: Interaction) {
-    const { config, logger, guildSettings, commands } = getBotContext();
+    const { config, logger, guildSettings, entitlements, commands } = getBotContext();
     const ctx: CommandContext = {
       client: interaction.client,
       config,
       logger,
       guildSettings,
+      entitlements,
     };
 
     if (interaction.isAutocomplete()) {
