@@ -27,7 +27,7 @@ If you are shipping a bot with **paid tiers**, **multi-tenant guild settings**, 
 - **Database adapters** for MongoDB + Mongoose, embedded SQLite, or zero-dependency mock mode for CI.
 - **Graceful shutdown** hooks that play nicely with PM2, Docker, and orchestrators.
 - **Docker Compose** stack for the bot + MongoDB with health checks.
-- **Optional Next.js dashboard** for billing, analytics, or admin-only surfaces.
+- **Optional Next.js dashboard** for billing, Stripe checkout/portal routes, bot telemetry ingest, and integration docs.
 
 ---
 
@@ -41,7 +41,7 @@ If you are shipping a bot with **paid tiers**, **multi-tenant guild settings**, 
 | 🪵 **Logging**         | Levels (`debug`, `info`, `warn`, `error`), metadata objects, optional Discord log channel.                    |
 | 🗄️ **Persistence**     | Per-guild settings document with Mongo + SQLite + mock parity.                                                |
 | 🐳 **Docker**          | Multi-stage image + Compose wiring for MongoDB.                                                               |
-| 🖥️ **Dashboard**       | `dashboard/` Next.js 15 starter with a premium dark landing stub.                                             |
+| 🖥️ **Dashboard**       | Next.js 15 control plane: billing (Stripe), bot telemetry ingest, integrations docs, mobile shell.            |
 | 📊 **Polls + AutoMod** | `/poll` create/end, poll vote logging, and `autoModerationActionExecution` wiring with optional rule helpers. |
 
 ---
@@ -258,17 +258,39 @@ Vortex tracks **`entitlementCreate`**, **`entitlementUpdate`**, and **`entitleme
 
 ## Optional Next.js dashboard
 
-The `dashboard/` app is a **shadcn/ui + Tailwind v4** starter with a **password gate** (JWT session cookie) and a **protected `/dashboard` shell** (sidebar + overview cards). It is meant for local/staging control planes until you wire Clerk, Auth.js, or your own SSO.
+The `dashboard/` app is a **shadcn/ui + Tailwind v4** control plane with a **password gate** (JWT session cookie), **mobile navigation**, and first-class stubs for **Stripe billing** and **Discord entitlement telemetry**.
+
+### What ships in the UI
+
+| Route                     | Purpose                                                                                                         |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `/dashboard`              | Overview cards fed by the latest bot ingest (guild count, active entitlements).                                 |
+| `/dashboard/telemetry`    | Entitlement table + ingest activity log.                                                                        |
+| `/dashboard/billing`      | Discord SKU list (`DISCORD_PREMIUM_SKU_IDS`) + Stripe checkout / customer portal buttons when env vars are set. |
+| `/dashboard/integrations` | How to wire `POST /api/integrations/bot-ingest` from the worker.                                                |
+| `/dashboard/settings`     | Non-secret env coverage checklist.                                                                              |
+
+### Bot ↔ dashboard bridge
+
+1. Set **`BOT_INGEST_SECRET`** to the same random string in **`dashboard/.env.local`** and the worker **`.env`**.
+2. Set **`DASHBOARD_INGEST_URL`** on the worker to your dashboard origin + `/api/integrations/bot-ingest`.
+3. Restart the worker. On **`ready`** and after **entitlement** gateway events (debounced ~2s), the bot POSTs a JSON snapshot (`guildCount`, `premiumSkuIds`, `entitlements[]`, `nodeEnv`, `reason`).
+
+The ingest handler stores data **in memory inside the Next.js Node process** — great for demos and single-instance hosts. For production, replace `dashboard/lib/bot-telemetry.ts` with Redis, Postgres, or an event bus.
+
+### Local run
 
 ```bash
 cd dashboard
 cp .env.example .env.local
-# set DASHBOARD_PASSWORD (8+ chars) and DASHBOARD_SESSION_SECRET (32+ chars)
+# set DASHBOARD_PASSWORD (8+ chars), DASHBOARD_SESSION_SECRET (32+ chars), optional BOT_INGEST_SECRET / Stripe keys
 npm install
 npm run dev
 ```
 
-Open `http://localhost:3100` for the marketing landing, `/login` to authenticate, and `/dashboard` for the protected operator console.
+Open `http://localhost:3100` for the marketing landing, `/login` to authenticate, and `/dashboard` for the operator console.
+
+If `next build` warns about **multiple lockfiles**, ensure no stray `package-lock.json` sits in a parent directory of this repo (Next may otherwise infer the wrong workspace root). The dashboard `next.config.ts` pins `outputFileTracingRoot` to this monorepo root to keep tracing stable.
 
 ---
 

@@ -1,4 +1,4 @@
-import type { REST } from 'discord.js';
+import type { Client, REST } from 'discord.js';
 import type { AppConfig } from '../config/index.js';
 import type { EntitlementService } from '../services/entitlements.js';
 import type { GuildSettingsService } from '../services/guildSettings.js';
@@ -6,6 +6,7 @@ import type { Logger } from '../services/logger.js';
 import type { BotCommand } from '../types/index.js';
 
 export interface BotContext {
+  client: Client;
   config: AppConfig;
   logger: Logger;
   guildSettings: GuildSettingsService;

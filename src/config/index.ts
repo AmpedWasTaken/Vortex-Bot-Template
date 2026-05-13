@@ -36,6 +36,14 @@ export interface AppConfig {
      */
     devEntitlementBypass: boolean;
   };
+  /**
+   * When set, the worker POSTs entitlement snapshots to the dashboard ingest route (debounced).
+   * Use the same `BOT_INGEST_SECRET` value in `dashboard/.env.local`.
+   */
+  dashboardIngest?: {
+    url: string;
+    secret: string;
+  };
   intents: IntentConfig;
 }
 
@@ -87,6 +95,13 @@ export function loadConfig(): AppConfig {
     discord.guildId = guildId;
   }
 
+  const dashboardIngestUrl = process.env['DASHBOARD_INGEST_URL']?.trim();
+  const dashboardIngestSecret = process.env['BOT_INGEST_SECRET']?.trim();
+  const dashboardIngest =
+    dashboardIngestUrl && dashboardIngestSecret
+      ? { url: dashboardIngestUrl, secret: dashboardIngestSecret }
+      : undefined;
+
   const database: AppConfig['database'] = {
     mode: databaseMode,
     sqlitePath: nonEmptyTrimmed(process.env['SQLITE_PATH']) ?? './data/vortex.sqlite',
@@ -118,6 +133,7 @@ export function loadConfig(): AppConfig {
       premiumSkuIds: parseList(process.env['PREMIUM_SKU_IDS']),
       devEntitlementBypass: process.env['DEV_ENTITLEMENT_BYPASS'] === 'true',
     },
+    ...(dashboardIngest ? { dashboardIngest } : {}),
     intents: loadIntentConfig(),
   };
 }

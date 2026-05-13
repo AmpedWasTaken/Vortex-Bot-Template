@@ -2,6 +2,7 @@ import { ActivityType, Events } from 'discord.js';
 import type { Client } from 'discord.js';
 import { getBotContext } from '../context/botContext.js';
 import { registerSlashCommands } from '../handlers/commandHandler.js';
+import { flushDashboardIngestNow } from '../services/dashboardIngest.js';
 import type { BotEvent } from '../types/index.js';
 
 export const event: BotEvent<typeof Events.ClientReady> = {
@@ -33,5 +34,7 @@ export const event: BotEvent<typeof Events.ClientReady> = {
       guilds: client.guilds.cache.size,
       startupMs,
     });
+
+    await flushDashboardIngestNow('client_ready');
   },
 };

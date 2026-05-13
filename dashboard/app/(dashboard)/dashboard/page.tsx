@@ -1,10 +1,20 @@
 import type { ReactElement } from 'react';
-import { Activity, Bot, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
+import { Activity, Bot, CreditCard, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { getBotTelemetry } from '@/lib/bot-telemetry';
+
+export const dynamic = 'force-dynamic';
 
 export default function DashboardHome(): ReactElement {
+  const { snapshot } = getBotTelemetry();
+  const activeEntitlements =
+    snapshot?.entitlements.filter((e) => e.isActive && !e.deleted).length ?? null;
+  const lastSync = snapshot?.receivedAt ? new Date(snapshot.receivedAt).toLocaleString() : 'Never';
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
       <div className="space-y-2">
@@ -16,40 +26,48 @@ export default function DashboardHome(): ReactElement {
           </Badge>
         </div>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          This surface is intentionally minimal. Add data fetching, charts, and tenant management routes without
-          touching the Discord worker in the repository root.
+          This control plane pairs with the Discord worker: ingest snapshots for entitlements, wire
+          Stripe for web billing, and keep integrations documented for your fork.
         </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Bot status</CardTitle>
+            <CardTitle className="text-sm font-medium">Bot snapshot</CardTitle>
             <Bot className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold">Online</div>
-            <p className="text-xs text-muted-foreground">Wire to `/health` or PM2 metrics.</p>
+            <div className="text-2xl font-semibold">{snapshot ? 'Receiving' : 'Idle'}</div>
+            <p className="text-xs text-muted-foreground">Last ingest: {lastSync}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active guilds</CardTitle>
+            <CardTitle className="text-sm font-medium">Guilds (from bot)</CardTitle>
             <Activity className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold">—</div>
-            <p className="text-xs text-muted-foreground">Connect Mongo + cache counts here.</p>
+            <div className="text-2xl font-semibold">
+              {snapshot ? String(snapshot.guildCount) : '—'}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Requires `DASHBOARD_INGEST_URL` on the worker.
+            </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">MRR</CardTitle>
-            <ShieldCheck className="size-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Active entitlements</CardTitle>
+            <CreditCard className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold">$0</div>
-            <p className="text-xs text-muted-foreground">Drop in Stripe billing webhooks.</p>
+            <div className="text-2xl font-semibold">
+              {activeEntitlements === null ? '—' : String(activeEntitlements)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Discord SKUs mirrored from the worker cache.
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -57,12 +75,28 @@ export default function DashboardHome(): ReactElement {
       <Card>
         <CardHeader>
           <CardTitle>Next steps</CardTitle>
-          <CardDescription>High leverage upgrades for a SaaS-grade control plane.</CardDescription>
+          <CardDescription>
+            Production hardening paths that stay compatible with this template.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm text-muted-foreground">
-          <p>Replace the password gate with Auth.js, Clerk, or your API gateway JWT.</p>
+        <CardContent className="space-y-4 text-sm text-muted-foreground">
+          <p>
+            Replace the password gate with Auth.js, Clerk, or your API gateway JWT. Persist ingest
+            payloads in Redis or Postgres — the in-memory store resets on deploy and does not work
+            across multiple Next instances.
+          </p>
           <Separator />
-          <p>Add route handlers under `app/api` for bot telemetry, entitlements, and audit logs.</p>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="secondary" size="sm">
+              <Link href="/dashboard/telemetry">Open telemetry</Link>
+            </Button>
+            <Button asChild variant="secondary" size="sm">
+              <Link href="/dashboard/billing">Configure billing</Link>
+            </Button>
+            <Button asChild variant="secondary" size="sm">
+              <Link href="/dashboard/integrations">Wire integrations</Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

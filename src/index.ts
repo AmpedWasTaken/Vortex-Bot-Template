@@ -39,6 +39,7 @@ async function bootstrap(): Promise<void> {
   const rest = new REST({ version: '10' }).setToken(config.discord.token);
 
   setBotContext({
+    client,
     config,
     logger,
     guildSettings,
