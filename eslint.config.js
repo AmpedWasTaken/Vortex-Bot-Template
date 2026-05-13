@@ -4,7 +4,7 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'node_modules/**', 'dashboard/**', 'eslint.config.js'],
+    ignores: ['dist/**', 'node_modules/**', 'dashboard/**', 'eslint.config.js', 'examples/**'],
   },
   eslint.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
