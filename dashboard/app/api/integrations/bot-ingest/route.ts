@@ -33,6 +33,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'Invalid ingest payload' }, { status: 400 });
   }
 
-  recordBotIngest(parsed);
+  await recordBotIngest(parsed);
   return NextResponse.json({ ok: true });
 }

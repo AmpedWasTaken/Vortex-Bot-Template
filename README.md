@@ -267,8 +267,45 @@ The `dashboard/` app is a **shadcn/ui + Tailwind v4** control plane with a **pas
 | `/dashboard`              | Overview cards fed by the latest bot ingest (guild count, active entitlements).                                 |
 | `/dashboard/telemetry`    | Entitlement table + ingest activity log.                                                                        |
 | `/dashboard/billing`      | Discord SKU list (`DISCORD_PREMIUM_SKU_IDS`) + Stripe checkout / customer portal buttons when env vars are set. |
-| `/dashboard/integrations` | How to wire `POST /api/integrations/bot-ingest` from the worker.                                                |
+| `/dashboard/integrations` | Bot ingest, **Postgres migrations**, Stripe webhook URL, **operator REST** examples.                            |
 | `/dashboard/settings`     | Non-secret env coverage checklist.                                                                              |
+
+### Control plane persistence (Postgres)
+
+When **`CONTROL_PLANE_DATABASE_URL`** is set, the dashboard stores:
+
+- **Bot ingest snapshots** (`bot_ingest_snapshots`) plus **audit rows** (`audit_log`).
+- **Stripe webhook idempotency** (`stripe_webhook_events` keyed by `event.id`) and **fulfillment rows** (`fulfillment_records`).
+- **Operator API keys** (`service_api_keys`, SHA-256 hashed secrets).
+
+Run migrations from `dashboard/`:
+
+```bash
+npm run db:migrate
+```
+
+Create a machine token (prints the secret once):
+
+```bash
+npm run operator:create-key -- "ci-runner"
+```
+
+Without `CONTROL_PLANE_DATABASE_URL`, telemetry still works in **memory-only** mode for quick local demos (not suitable for Stripe webhooks or horizontal scale).
+
+### Stripe webhook + fulfillment hooks
+
+1. Set **`STRIPE_WEBHOOK_SECRET`** from the Stripe CLI or Dashboard signing secret.
+2. Register **`POST /api/webhooks/stripe`** on your public dashboard origin.
+3. Ensure Checkout Sessions include metadata keys **`discord_user_id`** (and optionally **`discord_guild_id`**, **`sku_id`**) — the checkout API accepts these when posted as JSON alongside the dashboard session cookie.
+
+Handled events (idempotent): **`checkout.session.completed`**, **`customer.subscription.updated`**, **`customer.subscription.deleted`**. Extend `dashboard/lib/fulfillment-stripe.ts` to call Discord REST for real grants/revokes.
+
+### Operator REST (`Bearer` service keys)
+
+| Endpoint                         | Scope                  |
+| -------------------------------- | ---------------------- |
+| `GET /api/operator/v1/health`    | Any valid operator key |
+| `GET /api/operator/v1/telemetry` | `telemetry:read`       |
 
 ### Bot ↔ dashboard bridge
 
@@ -276,15 +313,15 @@ The `dashboard/` app is a **shadcn/ui + Tailwind v4** control plane with a **pas
 2. Set **`DASHBOARD_INGEST_URL`** on the worker to your dashboard origin + `/api/integrations/bot-ingest`.
 3. Restart the worker. On **`ready`** and after **entitlement** gateway events (debounced ~2s), the bot POSTs a JSON snapshot (`guildCount`, `premiumSkuIds`, `entitlements[]`, `nodeEnv`, `reason`).
 
-The ingest handler stores data **in memory inside the Next.js Node process** — great for demos and single-instance hosts. For production, replace `dashboard/lib/bot-telemetry.ts` with Redis, Postgres, or an event bus.
-
 ### Local run
 
 ```bash
 cd dashboard
 cp .env.example .env.local
-# set DASHBOARD_PASSWORD (8+ chars), DASHBOARD_SESSION_SECRET (32+ chars), optional BOT_INGEST_SECRET / Stripe keys
+# set DASHBOARD_PASSWORD (8+ chars), DASHBOARD_SESSION_SECRET (32+ chars),
+# optional CONTROL_PLANE_DATABASE_URL, BOT_INGEST_SECRET, Stripe keys, STRIPE_WEBHOOK_SECRET
 npm install
+npm run db:migrate
 npm run dev
 ```
 

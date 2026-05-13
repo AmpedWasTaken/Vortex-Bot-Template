@@ -7,7 +7,9 @@ export const dynamic = 'force-dynamic';
 
 export default function IntegrationsPage(): ReactElement {
   const ingestConfigured = isEnvSet('BOT_INGEST_SECRET');
+  const dbConfigured = isEnvSet('CONTROL_PLANE_DATABASE_URL');
   const exampleUrl = 'http://localhost:3100/api/integrations/bot-ingest';
+  const stripeWebhookUrl = 'http://localhost:3100/api/webhooks/stripe';
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
@@ -18,6 +20,28 @@ export default function IntegrationsPage(): ReactElement {
           same pattern for webhooks, analytics sinks, or ticketing systems.
         </p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Postgres + migrations</CardTitle>
+          <CardDescription>
+            Status: {dbConfigured ? 'CONTROL_PLANE_DATABASE_URL is set.' : 'Database URL not set.'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>
+            From <code className="text-xs">dashboard/</code>, run{' '}
+            <code className="text-xs">npm run db:migrate</code> after setting{' '}
+            <code className="text-xs">CONTROL_PLANE_DATABASE_URL</code> (Neon, RDS, local Postgres,
+            etc.).
+          </p>
+          <p>
+            Create an operator API key:{' '}
+            <code className="text-xs">npm run operator:create-key -- &quot;my-laptop&quot;</code> (scopes
+            default to <code className="text-xs">telemetry:read</code>).
+          </p>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -54,6 +78,40 @@ export default function IntegrationsPage(): ReactElement {
   -H "Authorization: Bearer $BOT_INGEST_SECRET" \\
   -H "Content-Type: application/json" \\
   -d '{"guildCount":0,"premiumSkuIds":[],"entitlements":[]}'`}
+          </pre>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Stripe webhooks</CardTitle>
+          <CardDescription>Idempotent processing requires Postgres + `STRIPE_WEBHOOK_SECRET`.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm text-muted-foreground">
+          <p>
+            Register endpoint:{' '}
+            <code className="break-all text-xs">{stripeWebhookUrl}</code>
+          </p>
+          <p>
+            Handlers included: <code className="text-xs">checkout.session.completed</code>,{' '}
+            <code className="text-xs">customer.subscription.updated</code>,{' '}
+            <code className="text-xs">customer.subscription.deleted</code>.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Operator REST</CardTitle>
+          <CardDescription>Machine access for telemetry without the browser session.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm text-muted-foreground">
+          <pre className="overflow-x-auto rounded-md border border-border bg-muted/40 p-3 text-xs text-foreground">
+            {`curl -sS -H "Authorization: Bearer $VORTEX_OPERATOR_KEY" \\
+  http://localhost:3100/api/operator/v1/health
+
+curl -sS -H "Authorization: Bearer $VORTEX_OPERATOR_KEY" \\
+  http://localhost:3100/api/operator/v1/telemetry`}
           </pre>
         </CardContent>
       </Card>

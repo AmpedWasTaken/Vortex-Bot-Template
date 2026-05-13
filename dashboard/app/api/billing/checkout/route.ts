@@ -3,8 +3,11 @@ import Stripe from 'stripe';
 import { ensureDashboardSession } from '@/lib/dashboard-route-auth';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
-export async function POST(): Promise<NextResponse> {
+const METADATA_ALLOWLIST = ['discord_user_id', 'discord_guild_id', 'sku_id'] as const;
+
+export async function POST(request: Request): Promise<NextResponse> {
   const unauthorized = await ensureDashboardSession();
   if (unauthorized) return unauthorized;
 
@@ -27,12 +30,31 @@ export async function POST(): Promise<NextResponse> {
     );
   }
 
+  const metadata: Record<string, string> = {};
+  try {
+    const body: unknown = await request.json();
+    if (body && typeof body === 'object' && !Array.isArray(body)) {
+      const rawMeta = (body as { metadata?: unknown }).metadata;
+      if (rawMeta && typeof rawMeta === 'object' && !Array.isArray(rawMeta)) {
+        for (const key of METADATA_ALLOWLIST) {
+          const v = (rawMeta as Record<string, unknown>)[key];
+          if (typeof v === 'string' && v.trim()) {
+            metadata[key] = v.trim();
+          }
+        }
+      }
+    }
+  } catch {
+    /* empty body is fine */
+  }
+
   const stripe = new Stripe(secretKey);
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     line_items: [{ price: priceId, quantity: 1 }],
     success_url: successUrl,
     cancel_url: cancelUrl,
+    metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
   });
 
   if (!session.url) {

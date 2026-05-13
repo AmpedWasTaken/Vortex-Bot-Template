@@ -1,3 +1,8 @@
+import type { JSONValue } from 'postgres';
+import type { PgClient } from '@/lib/db';
+import { getControlPlaneSql } from '@/lib/db';
+import { insertAudit } from '@/lib/audit';
+
 export type IngestEntitlement = {
   id: string;
   skuId: string;
@@ -20,26 +25,19 @@ export type BotTelemetrySnapshot = {
 
 const MAX_ACTIVITY = 40;
 
-let snapshot: BotTelemetrySnapshot | null = null;
-const activity: { at: string; label: string }[] = [];
+let memSnapshot: BotTelemetrySnapshot | null = null;
+const memActivity: { at: string; label: string }[] = [];
 
-export function recordBotIngest(next: Omit<BotTelemetrySnapshot, 'receivedAt'>): void {
+function recordMemory(next: Omit<BotTelemetrySnapshot, 'receivedAt'>): void {
   const receivedAt = new Date().toISOString();
-  snapshot = { ...next, receivedAt };
-  activity.unshift({
+  memSnapshot = { ...next, receivedAt };
+  memActivity.unshift({
     at: receivedAt,
     label: next.reason ? `Bot ingest · ${next.reason}` : 'Bot ingest',
   });
-  if (activity.length > MAX_ACTIVITY) {
-    activity.length = MAX_ACTIVITY;
+  if (memActivity.length > MAX_ACTIVITY) {
+    memActivity.length = MAX_ACTIVITY;
   }
-}
-
-export function getBotTelemetry(): {
-  snapshot: BotTelemetrySnapshot | null;
-  activity: readonly { at: string; label: string }[];
-} {
-  return { snapshot, activity: [...activity] };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -92,4 +90,108 @@ export function parseIngestBody(body: unknown): Omit<BotTelemetrySnapshot, 'rece
     nodeEnv: typeof nodeEnv === 'string' ? nodeEnv : undefined,
     reason: typeof reason === 'string' ? reason : undefined,
   };
+}
+
+function parseEntitlementsJson(value: unknown): IngestEntitlement[] {
+  if (!Array.isArray(value)) return [];
+  const parsed = parseIngestBody({
+    guildCount: 0,
+    premiumSkuIds: [],
+    entitlements: value,
+  });
+  return parsed?.entitlements ?? [];
+}
+
+async function readLatestFromDb(sql: PgClient): Promise<BotTelemetrySnapshot | null> {
+  const rows = await sql<
+    {
+      received_at: string;
+      reason: string | null;
+      guild_count: number;
+      premium_sku_ids: string[] | null;
+      node_env: string | null;
+      entitlements: unknown;
+    }[]
+  >`
+    SELECT received_at, reason, guild_count, premium_sku_ids, node_env, entitlements
+    FROM bot_ingest_snapshots
+    ORDER BY id DESC
+    LIMIT 1
+  `;
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    receivedAt: new Date(row.received_at).toISOString(),
+    guildCount: row.guild_count,
+    premiumSkuIds: row.premium_sku_ids ?? [],
+    entitlements: parseEntitlementsJson(row.entitlements),
+    nodeEnv: row.node_env ?? undefined,
+    reason: row.reason ?? undefined,
+  };
+}
+
+async function readActivityFromDb(sql: PgClient): Promise<{ at: string; label: string }[]> {
+  const rows = await sql<
+    { created_at: string; action: string; meta: Record<string, unknown> | null }[]
+  >`
+    SELECT created_at, action, meta
+    FROM audit_log
+    WHERE action IN ('bot.ingest', 'stripe.webhook.processed')
+    ORDER BY id DESC
+    LIMIT ${MAX_ACTIVITY}
+  `;
+  return rows.map((r) => ({
+    at: new Date(r.created_at).toISOString(),
+    label:
+      r.action === 'bot.ingest'
+        ? `Bot ingest · ${typeof r.meta?.['reason'] === 'string' ? (r.meta['reason'] as string) : 'ingest'}`
+        : `Stripe webhook · ${typeof r.meta?.['type'] === 'string' ? (r.meta['type'] as string) : 'event'}`,
+  }));
+}
+
+export async function recordBotIngest(
+  next: Omit<BotTelemetrySnapshot, 'receivedAt'>,
+): Promise<void> {
+  const sql = getControlPlaneSql();
+  const receivedAt = new Date();
+  if (!sql) {
+    recordMemory(next);
+    return;
+  }
+
+  await sql.begin(async (tx) => {
+    await tx`
+      INSERT INTO bot_ingest_snapshots (received_at, reason, guild_count, premium_sku_ids, node_env, entitlements)
+      VALUES (
+        ${receivedAt},
+        ${next.reason ?? null},
+        ${next.guildCount},
+        ${tx.array(next.premiumSkuIds)},
+        ${next.nodeEnv ?? null},
+        ${tx.json(next.entitlements as unknown as JSONValue)}
+      )
+    `;
+    await insertAudit(
+      {
+        actor: 'bot',
+        action: 'bot.ingest',
+        meta: { reason: next.reason ?? null, guildCount: next.guildCount },
+      },
+      tx,
+    );
+  });
+}
+
+export async function getBotTelemetry(): Promise<{
+  snapshot: BotTelemetrySnapshot | null;
+  activity: readonly { at: string; label: string }[];
+  persistence: 'postgres' | 'memory';
+}> {
+  const sql = getControlPlaneSql();
+  if (!sql) {
+    return { snapshot: memSnapshot, activity: [...memActivity], persistence: 'memory' };
+  }
+  const snapshot = await readLatestFromDb(sql);
+  const activity = await readActivityFromDb(sql);
+  return { snapshot, activity, persistence: 'postgres' };
 }

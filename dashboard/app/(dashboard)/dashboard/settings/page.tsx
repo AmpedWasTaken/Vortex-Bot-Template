@@ -13,8 +13,10 @@ export default function SettingsPage(): ReactElement {
   const rows = [
     { label: 'Dashboard password', ok: isDashboardPasswordConfigured() },
     { label: 'Session signing secret', ok: isEnvSet('DASHBOARD_SESSION_SECRET') },
+    { label: 'Control plane Postgres URL', ok: isEnvSet('CONTROL_PLANE_DATABASE_URL') },
     { label: 'Bot ingest secret', ok: isEnvSet('BOT_INGEST_SECRET') },
     { label: 'Stripe secret key', ok: isEnvSet('STRIPE_SECRET_KEY') },
+    { label: 'Stripe webhook signing secret', ok: isEnvSet('STRIPE_WEBHOOK_SECRET') },
     { label: 'Stripe price (checkout)', ok: isEnvSet('STRIPE_PRICE_ID') },
     { label: 'Stripe customer (portal)', ok: isEnvSet('STRIPE_CUSTOMER_ID') },
     { label: 'Discord premium SKUs (display)', ok: isEnvSet('DISCORD_PREMIUM_SKU_IDS') },

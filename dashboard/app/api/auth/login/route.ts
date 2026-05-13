@@ -5,7 +5,10 @@ import { isDashboardPasswordConfigured, verifyDashboardPassword } from '@/lib/da
 export async function POST(request: Request): Promise<NextResponse> {
   if (!isDashboardPasswordConfigured()) {
     return NextResponse.json(
-      { error: 'Dashboard password is not configured. Set DASHBOARD_PASSWORD in dashboard/.env.local.' },
+      {
+        error:
+          'Dashboard password is not configured. Set DASHBOARD_PASSWORD in dashboard/.env.local.',
+      },
       { status: 500 },
     );
   }

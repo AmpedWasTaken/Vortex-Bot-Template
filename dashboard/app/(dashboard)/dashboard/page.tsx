@@ -9,8 +9,8 @@ import { getBotTelemetry } from '@/lib/bot-telemetry';
 
 export const dynamic = 'force-dynamic';
 
-export default function DashboardHome(): ReactElement {
-  const { snapshot } = getBotTelemetry();
+export default async function DashboardHome(): Promise<ReactElement> {
+  const { snapshot, persistence } = await getBotTelemetry();
   const activeEntitlements =
     snapshot?.entitlements.filter((e) => e.isActive && !e.deleted).length ?? null;
   const lastSync = snapshot?.receivedAt ? new Date(snapshot.receivedAt).toLocaleString() : 'Never';
@@ -27,7 +27,9 @@ export default function DashboardHome(): ReactElement {
         </div>
         <p className="max-w-2xl text-sm text-muted-foreground">
           This control plane pairs with the Discord worker: ingest snapshots for entitlements, wire
-          Stripe for web billing, and keep integrations documented for your fork.
+          Stripe for web billing, and keep integrations documented for your fork. Telemetry persistence:{' '}
+          <span className="font-mono text-foreground">{persistence}</span>
+          {persistence === 'memory' ? ' (set CONTROL_PLANE_DATABASE_URL + run db:migrate).' : '.'}
         </p>
       </div>
 
@@ -81,9 +83,10 @@ export default function DashboardHome(): ReactElement {
         </CardHeader>
         <CardContent className="space-y-4 text-sm text-muted-foreground">
           <p>
-            Replace the password gate with Auth.js, Clerk, or your API gateway JWT. Persist ingest
-            payloads in Redis or Postgres — the in-memory store resets on deploy and does not work
-            across multiple Next instances.
+            Replace the password gate with Auth.js, Clerk, or your API gateway JWT. When
+            `CONTROL_PLANE_DATABASE_URL` is set, ingest snapshots, Stripe webhook idempotency, audit
+            rows, and operator API keys are stored in Postgres; otherwise telemetry falls back to
+            in-memory mode for local demos only.
           </p>
           <Separator />
           <div className="flex flex-wrap gap-2">

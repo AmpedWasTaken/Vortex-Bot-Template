@@ -6,8 +6,8 @@ import { getBotTelemetry } from '@/lib/bot-telemetry';
 
 export const dynamic = 'force-dynamic';
 
-export default function TelemetryPage(): ReactElement {
-  const { snapshot, activity } = getBotTelemetry();
+export default async function TelemetryPage(): Promise<ReactElement> {
+  const { snapshot, activity, persistence } = await getBotTelemetry();
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
@@ -18,8 +18,10 @@ export default function TelemetryPage(): ReactElement {
           <code className="rounded bg-muted px-1 py-0.5 text-xs">
             POST /api/integrations/bot-ingest
           </code>
-          . This view is backed by an in-process store suitable for single-node demos — swap in
-          Redis or a database for production.
+          . Persistence: <span className="font-mono">{persistence}</span>
+          {persistence === 'postgres'
+            ? ' (Postgres: latest snapshot + recent audit rows).'
+            : ' (memory: set CONTROL_PLANE_DATABASE_URL and run `npm run db:migrate` in `dashboard/`).'}
         </p>
       </div>
 
@@ -74,7 +76,7 @@ export default function TelemetryPage(): ReactElement {
         <Card>
           <CardHeader>
             <CardTitle>Activity</CardTitle>
-            <CardDescription>Recent ingest events (memory-only).</CardDescription>
+            <CardDescription>Recent ingest and Stripe webhook audit rows.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             {activity.length === 0 ? (

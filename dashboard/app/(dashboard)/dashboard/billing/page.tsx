@@ -44,6 +44,30 @@ export default async function BillingPage({ searchParams }: PageProps): Promise<
         </div>
       ) : null}
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Stripe → control plane webhook</CardTitle>
+          <CardDescription>
+            Requires Postgres (<code className="text-xs">CONTROL_PLANE_DATABASE_URL</code>) and{' '}
+            <code className="text-xs">STRIPE_WEBHOOK_SECRET</code>.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm text-muted-foreground">
+          <p>
+            Endpoint:{' '}
+            <code className="break-all text-xs">/api/webhooks/stripe</code> (full URL in
+            Integrations). Events are deduped by <code className="text-xs">event.id</code> before
+            fulfillment hooks run.
+          </p>
+          <p>
+            Put <code className="text-xs">discord_user_id</code> (and optionally{' '}
+            <code className="text-xs">discord_guild_id</code>, <code className="text-xs">sku_id</code>)
+            on the Checkout Session metadata so <code className="text-xs">checkout.session.completed</code>{' '}
+            can record fulfillment rows.
+          </p>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
