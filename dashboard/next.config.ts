@@ -2,13 +2,12 @@ import type { NextConfig } from 'next';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const dashboardDir = path.dirname(fileURLToPath(import.meta.url));
-/** Monorepo root (parent of `dashboard/`) — avoids Next picking an unrelated lockfile higher in the tree. */
-const repoRoot = path.resolve(dashboardDir, '..');
+/** Absolute path to this app — keeps `next build` route resolution stable inside `dashboard/`. */
+const dashboardRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)));
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  outputFileTracingRoot: repoRoot,
+  outputFileTracingRoot: dashboardRoot,
 };
 
 export default nextConfig;

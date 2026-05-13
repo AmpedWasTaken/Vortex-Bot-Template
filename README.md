@@ -290,7 +290,7 @@ npm run dev
 
 Open `http://localhost:3100` for the marketing landing, `/login` to authenticate, and `/dashboard` for the operator console.
 
-If `next build` warns about **multiple lockfiles**, ensure no stray `package-lock.json` sits in a parent directory of this repo (Next may otherwise infer the wrong workspace root). The dashboard `next.config.ts` pins `outputFileTracingRoot` to this monorepo root to keep tracing stable.
+If `next build` warns about **multiple lockfiles**, remove any stray `package-lock.json` in a **parent directory** of this repo (for example under your user profile). Next may otherwise infer the wrong workspace root. The dashboard pins `outputFileTracingRoot` to the `dashboard/` folder so routes resolve reliably.
 
 ---
 
