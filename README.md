@@ -204,13 +204,17 @@ Add new commands by cloning `examples/ping-command.example.ts` into `src/command
 
 ## Optional Next.js dashboard
 
+The `dashboard/` app is a **shadcn/ui + Tailwind v4** starter with a **password gate** (JWT session cookie) and a **protected `/dashboard` shell** (sidebar + overview cards). It is meant for local/staging control planes until you wire Clerk, Auth.js, or your own SSO.
+
 ```bash
 cd dashboard
+cp .env.example .env.local
+# set DASHBOARD_PASSWORD (8+ chars) and DASHBOARD_SESSION_SECRET (32+ chars)
 npm install
 npm run dev
 ```
 
-The dashboard intentionally ships as a **thin, futuristic shell** so you can wire your own API routes, auth, and billing without fighting the bot runtime.
+Open `http://localhost:3100` for the marketing landing, `/login` to authenticate, and `/dashboard` for the protected operator console.
 
 ---
 
