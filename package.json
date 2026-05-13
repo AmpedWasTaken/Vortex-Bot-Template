@@ -1,7 +1,7 @@
 {
   "name": "vortex-bot-template",
   "version": "1.0.0",
-  "description": "Production-ready Discord.js v14 bot framework — monetizable, SaaS-ready, and community-scale.",
+  "description": "Discord.js v14 bot template with slash commands, entitlements, polls, optional Next.js dashboard (Postgres, Stripe, operator API).",
   "type": "module",
   "engines": {
     "node": ">=20.10.0"
@@ -18,11 +18,20 @@
   },
   "keywords": [
     "discord",
+    "discord-js",
     "discord.js",
     "bot",
+    "bot-template",
     "typescript",
+    "slash-commands",
+    "entitlements",
     "mongodb",
     "mongoose",
+    "sqlite",
+    "nextjs",
+    "postgresql",
+    "stripe",
+    "docker",
     "template",
     "vortex"
   ],

@@ -1,62 +1,142 @@
 <div align="center">
 
-# Vortex Bot Template
+![Vortex Bot Template — Discord.js control plane](assets/vortex-banner.svg)
 
-**A production-grade Discord.js v14 starter for monetizable bots, SaaS control planes, and advanced community products.**
+**A production-ready [Discord.js](https://discord.js.org/) v14 starter:** slash commands, monetization hooks, polls, AutoMod events, optional **Next.js dashboard** (Postgres, Stripe webhooks, operator API).
 
+[![Node.js 20+](https://img.shields.io/badge/node-%3E%3D20.10-43853d?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![discord.js](https://img.shields.io/badge/discord.js-v14-5865F2?logo=discord&logoColor=white)](https://discord.js.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+[Quick start](#-first-run-about-5-minutes) · [Dashboard](#-optional-dashboard-nextjs) · [Troubleshooting](#-troubleshooting) · [Layout](#-repository-layout)
 
 </div>
 
 ---
 
-Vortex is not a toy ping bot. It is an **opinionated framework layout** with strict TypeScript, modular slash commands, auto-wired events, pluggable persistence (MongoDB, SQLite, or mock), structured logging, Docker, and an optional Next.js dashboard scaffold for SaaS-style surfaces.
+## Why this template?
 
-If you are shipping a bot with **paid tiers**, **multi-tenant guild settings**, or **long-lived operations**, Vortex gives you the skeleton maintainers expect from a serious open-source template.
-
----
-
-## Highlights
-
-- **Slash-first architecture** with auto discovery, subcommand support, and a dedicated registration CLI.
-- **Event loader** that mirrors the command ergonomics — drop a file, it loads.
-- **Permission tiers** (`admin`, `moderator`, `user`) layered on top of native Discord permissions.
-- **Structured logging** with chalk-colored console output and optional Discord channel mirroring.
-- **Database adapters** for MongoDB + Mongoose, embedded SQLite, or zero-dependency mock mode for CI.
-- **Graceful shutdown** hooks that play nicely with PM2, Docker, and orchestrators.
-- **Docker Compose** stack for the bot + MongoDB with health checks.
-- **Optional Next.js dashboard** for billing, Stripe checkout/portal routes, bot telemetry ingest, and integration docs.
+| You want…                                               | Vortex gives you…                                                                      |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| A **real project structure** (not one giant `index.js`) | Typed config, context, handlers, `src/commands` + `src/events` auto-loaders            |
+| **Monetization** aligned with Discord                   | Entitlement service, `/vip` + `/premium` samples, gateway entitlement events           |
+| **Modern Discord API** demos                            | Native polls (`/poll`), Components v2 (`/vortex components2`), AutoMod execution event |
+| **Operator / SaaS surface**                             | Optional `dashboard/` with Postgres, Stripe webhooks, bot telemetry ingest, API keys   |
 
 ---
 
-## Feature tour
+## Table of contents
 
-| Area                   | What you get                                                                                                  |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------- |
-| 🧩 **Slash commands**  | `src/commands` modules export a `command` object — no central switch statement.                               |
-| ⚡ **Auto loaders**    | Commands and events are imported dynamically from disk (works in `dist/` after build).                        |
-| 🛡️ **Permissions**     | `hasPermission()` blends Administrator / Manage Guild checks with env + per-guild role lists.                 |
-| 🪵 **Logging**         | Levels (`debug`, `info`, `warn`, `error`), metadata objects, optional Discord log channel.                    |
-| 🗄️ **Persistence**     | Per-guild settings document with Mongo + SQLite + mock parity.                                                |
-| 🐳 **Docker**          | Multi-stage image + Compose wiring for MongoDB.                                                               |
-| 🖥️ **Dashboard**       | Next.js 15 control plane: billing (Stripe), bot telemetry ingest, integrations docs, mobile shell.            |
-| 📊 **Polls + AutoMod** | `/poll` create/end, poll vote logging, and `autoModerationActionExecution` wiring with optional rule helpers. |
+1. [First run (about 5 minutes)](#-first-run-about-5-minutes)
+2. [Choose: bot only vs bot + dashboard](#-choose-bot-only-vs-bot--dashboard)
+3. [Features at a glance](#-features-at-a-glance)
+4. [Tech stack](#-tech-stack)
+5. [Repository layout](#-repository-layout)
+6. [Environment variables](#-environment-variables)
+7. [Gateway intents](#-gateway-intents)
+8. [Slash command registration](#-slash-command-registration)
+9. [Scripts](#-scripts)
+10. [Database modes](#-database-modes)
+11. [Docker](#-docker)
+12. [Example slash commands](#-example-slash-commands)
+13. [Monetization (Entitlements)](#-monetization-application-entitlements)
+14. [Optional dashboard (Next.js)](#-optional-dashboard-nextjs)
+15. [PM2](#-pm2--process-managers)
+16. [Troubleshooting](#-troubleshooting)
+17. [Contributing](#-contributing)
+18. [License & acknowledgements](#-license)
+
+---
+
+## First run (about 5 minutes)
+
+### Prerequisites
+
+- **[Node.js](https://nodejs.org/) 20.10+** and **npm**
+- A **[Discord application](https://discord.com/developers/applications)** with a bot user and token
+- _(Optional)_ [MongoDB](https://www.mongodb.com/) local or Atlas — or use `DATABASE_MODE=sqlite` / `mock`
+
+### Steps
+
+1. **Clone and enter the repo**
+
+   ```bash
+   git clone https://github.com/<your-org>/vortex-bot-template.git
+   cd vortex-bot-template
+   ```
+
+2. **Create env file from the template**
+
+   ```bash
+   cp .env.example .env
+   ```
+
+3. **Fill the two required Discord values** in `.env`
+   - `DISCORD_TOKEN` — Bot token (Developer Portal → Bot → Reset / copy token)
+   - `DISCORD_CLIENT_ID` — Application ID (same portal, “Application ID”)
+
+4. **Pick a database mode** (default in `.env.example` is `mongo`)
+   - For **no database install**, set `DATABASE_MODE=mock` in `.env` for a quick try.
+   - For **SQLite**, set `DATABASE_MODE=sqlite` (no Mongo needed).
+   - For **MongoDB**, set `DATABASE_MODE=mongo` and `MONGODB_URI=...`.
+
+5. **Install and run the bot**
+
+   ```bash
+   npm install
+   npm run dev
+   ```
+
+6. **See slash commands in your server**
+   - **Fastest:** set `DISCORD_GUILD_ID=<your server id>` in `.env`, then restart the bot _or_ run `npm run register-commands` so commands register to that guild immediately.
+   - **Global commands:** leave `DISCORD_GUILD_ID` empty and run `npm run register-commands`; propagation can take up to ~1 hour.
+
+7. **Portal checklist** (avoid “nothing works” surprises)
+   - In **Bot → Privileged Gateway Intents**, match what you set in `.env` (see [Gateway intents](#-gateway-intents)).
+   - Invite the bot with scopes **`bot`** + **`applications.commands`**.
+
+---
+
+## Choose: bot only vs bot + dashboard
+
+| Goal                         | What to run                                                                                                                                                            |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Discord bot only**         | Root: `npm run dev` (or `npm run build` + `npm start`)                                                                                                                 |
+| **Bot + control plane UI**   | Also `cd dashboard`, copy `.env.local`, `npm install`, `npm run db:migrate` (if using Postgres), `npm run dev` — see [Optional dashboard](#-optional-dashboard-nextjs) |
+| **Push slash commands once** | From root: `npm run register-commands`                                                                                                                                 |
+
+---
+
+## Features at a glance
+
+| Area                   | What you get                                                                                          |
+| ---------------------- | ----------------------------------------------------------------------------------------------------- |
+| **Slash commands**     | Drop files under `src/commands/` — no central switch. Subcommands, autocomplete-ready types.          |
+| **Events**             | Same pattern under `src/events/` (ready, interactions, entitlements, polls, AutoMod, …).              |
+| **Permissions**        | Tiers `admin` / `moderator` / `user` on top of Discord permissions + env/guild role lists.            |
+| **Persistence**        | MongoDB (Mongoose), **SQLite**, or **mock** for CI / quick demos.                                     |
+| **Logging**            | Structured logs + optional mirror to a Discord log channel.                                           |
+| **Monetization**       | Entitlement cache + `/premium`, `/vip` patterns; dashboard ingest optional.                           |
+| **Modern API samples** | `/poll`, `/vortex components2`, AutoMod execution event, poll vote events.                            |
+| **Intents**            | Env-driven toggles in `src/config/intents.ts` (documented + README matrix).                           |
+| **Dashboard**          | Password gate, telemetry, Stripe checkout/portal + **webhooks**, **Postgres**, **operator API keys**. |
+| **Deploy**             | Dockerfile + `docker-compose.yml` (bot + Mongo).                                                      |
 
 ---
 
 ## Tech stack
 
-| Layer       | Choice                                                                          |
-| ----------- | ------------------------------------------------------------------------------- |
-| Runtime     | Node.js 20+ (LTS aligned)                                                       |
-| Language    | TypeScript (`strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`) |
-| Discord SDK | `discord.js` v14                                                                |
-| Config      | `dotenv` + typed accessors in `src/config`                                      |
-| Database    | `mongoose` (MongoDB) + `better-sqlite3` (embedded fallback) + in-memory mock    |
-| Tooling     | ESLint 9 (flat config) + Prettier                                               |
-| Optional UI | Next.js 15 + React 19 (`dashboard/`)                                            |
+| Layer           | Choice                                                     |
+| --------------- | ---------------------------------------------------------- |
+| Runtime         | Node.js 20+                                                |
+| Language        | TypeScript (strict)                                        |
+| Discord         | discord.js v14                                             |
+| Bot persistence | Mongoose / better-sqlite3 / mock                           |
+| Dashboard DB    | Postgres (`postgres` driver) — optional                    |
+| Dashboard UI    | Next.js 15, React 19, Tailwind v4, shadcn-style components |
+| Tooling         | ESLint 9, Prettier                                         |
 
 ---
 
@@ -64,302 +144,245 @@ If you are shipping a bot with **paid tiers**, **multi-tenant guild settings**, 
 
 ```text
 .
-├── Dockerfile
-├── docker-compose.yml
+├── assets/
+│   └── vortex-banner.svg          # README banner
+├── dashboard/                     # Optional Next.js control plane
+│   ├── db/migrations/             # Postgres schema (control plane)
+│   ├── app/                       # Routes + API (Stripe webhook, operator API, …)
+│   └── scripts/                   # db:migrate, operator:create-key
 ├── examples/
-│   └── ping-command.example.ts   # Copy/paste starter for new commands
-├── dashboard/                    # Optional Next.js SaaS dashboard scaffold
+│   └── ping-command.example.ts
 ├── src/
-│   ├── commands/                 # Slash command modules (export `command`)
-│   ├── events/                   # Discord event modules (export `event`)
-│   ├── handlers/                 # Command registry, execution, event wiring
-│   ├── services/                 # Logger, guild settings, entitlements, AutoMod helpers, SQLite store
-│   ├── models/                   # Mongoose schemas
-│   ├── context/                  # Request-scoped bot context accessors
-│   ├── config/                   # Typed environment configuration + gateway intent toggles
-│   ├── utils/                    # Banner, shutdown, permissions helpers
-│   ├── types/                    # Shared contracts (`BotCommand`, `BotEvent`, …)
-│   └── index.ts                  # Bootstrap + graceful shutdown
-├── package.json
-├── tsconfig.json
+│   ├── commands/                  # Slash modules → export `command`
+│   ├── events/                    # Gateway modules → export `event`
+│   ├── handlers/
+│   ├── services/                  # Logger, settings, entitlements, dashboard ingest, …
+│   ├── config/                    # loadConfig + intent toggles
+│   └── index.ts
+├── docker-compose.yml
+├── Dockerfile
+├── .env.example
 └── README.md
 ```
 
 ---
 
-## Quick start
-
-```bash
-git clone https://github.com/<your-org>/vortex-bot-template.git
-cd vortex-bot-template
-cp .env.example .env
-# fill DISCORD_TOKEN + DISCORD_CLIENT_ID at minimum
-npm install
-npm run dev
-```
-
-> **Discord developer portal checklist**
->
-> 1. Create an application, reset the bot token, and copy the **Application ID** (`DISCORD_CLIENT_ID`).
-> 2. Under **Bot → Privileged Gateway Intents**, enable only what you turn on in `.env` (see the [Gateway intents](#gateway-intents) matrix — mismatches cause silent missing events or review friction).
-> 3. Enable **Server Members Intent** if `INTENT_GUILD_MEMBERS=true` (member joins, `guildMemberAdd`, and member fetches for permission checks).
-> 4. Enable **Message Content Intent** only if `INTENT_MESSAGE_CONTENT=true` (privileged; most bots do not need it).
-> 5. Invite the bot with `applications.commands` + `bot` scopes. For **user-installable** apps, also configure **Installation Contexts** in the portal and read [Installation contexts & command scope](#installation-contexts--command-scope).
-
----
-
 ## Environment variables
 
-Copy `.env.example` to `.env` and tune for your environment:
+Copy **`.env.example`** → **`.env`** at the repo root. The file is commented; minimum for the bot is:
 
-```env
-# Core
-NODE_ENV=development
-DISCORD_TOKEN=
-DISCORD_CLIENT_ID=
-DISCORD_GUILD_ID=
+- `DISCORD_TOKEN`
+- `DISCORD_CLIENT_ID`
 
-# Optional: restrict slash command registration to one guild (faster iteration)
-# DISCORD_GUILD_ID=123456789012345678
+Optional highlights:
 
-# Database — pick one primary mode:
-# mongo | sqlite | mock
-DATABASE_MODE=mongo
-MONGODB_URI=mongodb://127.0.0.1:27017/vortex_bot
+| Variable                                     | Purpose                                                                              |
+| -------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `DISCORD_GUILD_ID`                           | Guild-scoped slash commands (instant updates while developing).                      |
+| `DATABASE_MODE`                              | `mongo` \| `sqlite` \| `mock`                                                        |
+| `PREMIUM_SKU_IDS`                            | Discord SKU snowflakes for premium gating.                                           |
+| `DASHBOARD_INGEST_URL` + `BOT_INGEST_SECRET` | Push entitlement snapshots to the dashboard (same secret in `dashboard/.env.local`). |
+| `INTENT_*`                                   | Gateway intents — must match the Developer Portal.                                   |
 
-# SQLite path when DATABASE_MODE=sqlite
-SQLITE_PATH=./data/vortex.sqlite
-
-# Logging
-LOG_LEVEL=info
-DISCORD_LOG_CHANNEL_ID=
-
-# Slash commands: auto-register on ready for guild installs or when explicitly enabled
-REGISTER_SLASH_ON_READY=false
-
-# Permissions — comma-separated role IDs (optional; Administrator permission still counts as admin)
-ADMIN_ROLE_IDS=
-MOD_ROLE_IDS=
-
-# Monetization — Application Entitlements
-PREMIUM_SKU_IDS=
-DEV_ENTITLEMENT_BYPASS=false
-
-# Gateway intents — must match the Developer Portal (see README)
-INTENT_GUILD_MEMBERS=true
-INTENT_AUTOMOD_EXECUTION=true
-INTENT_GUILD_MESSAGE_POLLS=true
-INTENT_MESSAGE_CONTENT=false
-```
-
-### Installation contexts & command scope
-
-Discord distinguishes **where the app can be installed** (guild vs user “Use Application”) from **where slash commands are registered** (per-guild vs global). This template keeps registration logic in one place:
-
-| Concern                             | How Vortex handles it                                                                                                                                                                                                                                                                               |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Guild vs global REST body**       | If `DISCORD_GUILD_ID` is set, `registerSlashCommands` uses `applicationGuildCommands` (instant updates, guild-only installs). If it is empty, commands register globally via `applicationCommands` (up to ~1 hour propagation).                                                                     |
-| **When commands sync**              | Same as before: `DISCORD_GUILD_ID` **or** `REGISTER_SLASH_ON_READY=true` on startup, otherwise run `npm run register-commands`.                                                                                                                                                                     |
-| **User-installed / secondary apps** | Configure **Installation contexts** and linked applications in the [Developer Portal](https://discord.com/developers/applications). Each OAuth **application id** has its own command registration surface; use separate deployments or env files per client id if you ship a secondary linked app. |
-| **Runtime context**                 | In discord.js v14+, inspect `interaction.context` / `interaction.authorizingIntegrationOwners` when you need to branch DM vs guild behavior for the same command tree.                                                                                                                              |
+Full list: see [`.env.example`](.env.example).
 
 ---
 
 ## Gateway intents
 
-`src/config/intents.ts` maps `.env` toggles to `GatewayIntentBits` for `new Client({ intents })`. **`Guilds` is always requested** so the bot can resolve guild metadata.
+Configured in **`src/config/intents.ts`** from `.env`. **`Guilds` is always on.**
 
-| `.env` flag                       | `GatewayIntentBits`       | Used by this template                                                                                            |
-| --------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `INTENT_GUILD_MEMBERS=true`       | `GuildMembers`            | `guildMemberAdd` event; `interaction.guild.members.fetch` in slash permission checks.                            |
-| `INTENT_AUTOMOD_EXECUTION=true`   | `AutoModerationExecution` | `autoModerationActionExecution` event (community AutoMod analytics).                                             |
-| `INTENT_GUILD_MESSAGE_POLLS=true` | `GuildMessagePolls`       | `messagePollVoteAdd` / `messagePollVoteRemove` (poll vote analytics).                                            |
-| `INTENT_MESSAGE_CONTENT=true`     | `MessageContent`          | **Privileged.** Raw message body in message events — leave `false` unless you truly need non-slash message text. |
+| `.env`                                        | Intent                    | Used for                                                   |
+| --------------------------------------------- | ------------------------- | ---------------------------------------------------------- |
+| `INTENT_GUILD_MEMBERS` (default `true`)       | `GuildMembers`            | `guildMemberAdd`, member fetch for slash permission checks |
+| `INTENT_AUTOMOD_EXECUTION` (default `true`)   | `AutoModerationExecution` | `autoModerationActionExecution`                            |
+| `INTENT_GUILD_MESSAGE_POLLS` (default `true`) | `GuildMessagePolls`       | Poll vote add/remove events                                |
+| `INTENT_MESSAGE_CONTENT` (default `false`)    | `MessageContent`          | **Privileged** — raw message content                       |
 
-Keep these flags aligned with **Bot → Privileged Gateway Intents** in the Developer Portal. Discord may flag or disable bots that request privileged intents without using them.
+Enable the same toggles under **Bot → Privileged Gateway Intents** in the [Developer Portal](https://discord.com/developers/applications).
 
-### Slash command registration strategies
+---
 
-| Mode                           | When to use                                             |
-| ------------------------------ | ------------------------------------------------------- |
-| `DISCORD_GUILD_ID` set         | Instant guild command updates (ideal for dev/staging).  |
-| `REGISTER_SLASH_ON_READY=true` | Force global/guild sync whenever the bot starts.        |
-| `npm run register-commands`    | One-shot REST registration — best for production CI/CD. |
+## Slash command registration
+
+| Approach                       | When to use                                                       |
+| ------------------------------ | ----------------------------------------------------------------- |
+| `DISCORD_GUILD_ID` set         | Guild commands; updates are quick (great for dev).                |
+| `REGISTER_SLASH_ON_READY=true` | Sync on every bot start (guild or global depending on `guildId`). |
+| `npm run register-commands`    | One-shot from your machine or CI.                                 |
+
+### Installation contexts (guild vs user installs)
+
+| Topic                | Behavior in this repo                                                                                                      |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Guild vs global REST | If `DISCORD_GUILD_ID` is set → `applicationGuildCommands`; else → `applicationCommands`.                                   |
+| User-installed apps  | Configure **Installation contexts** in the Developer Portal; use separate app IDs/envs if you ship a linked/secondary app. |
+| Runtime              | Use `interaction.context` / `interaction.authorizingIntegrationOwners` when you branch DM vs guild.                        |
 
 ---
 
 ## Scripts
 
-| Script                            | Purpose                                 |
-| --------------------------------- | --------------------------------------- |
-| `npm run dev`                     | `tsx` watch mode for rapid iteration    |
-| `npm run build`                   | Emit `dist/` with `tsc`                 |
-| `npm start`                       | Run compiled bot (`node dist/index.js`) |
-| `npm run register-commands`       | Push slash definitions to Discord       |
-| `npm run lint` / `npm run format` | Static analysis + Prettier              |
+| Script                            | Purpose                              |
+| --------------------------------- | ------------------------------------ |
+| `npm run dev`                     | Watch mode (`tsx`)                   |
+| `npm run build`                   | Compile to `dist/`                   |
+| `npm start`                       | Run `dist/index.js`                  |
+| `npm run register-commands`       | Register slash commands with Discord |
+| `npm run lint` / `npm run format` | ESLint / Prettier                    |
 
 ---
 
 ## Database modes
 
-| `DATABASE_MODE` | Behavior                                                                                  |
-| --------------- | ----------------------------------------------------------------------------------------- |
-| `mongo`         | Persists guild settings in MongoDB via Mongoose (`src/models/GuildSettings.ts`).          |
-| `sqlite`        | Embedded `better-sqlite3` store under `SQLITE_PATH` (great for single-node SaaS tenants). |
-| `mock`          | In-memory `Map` — perfect for CI, prototyping, or local UI work without infra.            |
+| `DATABASE_MODE` | When to use                                                         |
+| --------------- | ------------------------------------------------------------------- |
+| `mongo`         | Production-style multi-tenant guild settings (needs `MONGODB_URI`). |
+| `sqlite`        | Single-node / embedded (`SQLITE_PATH`).                             |
+| `mock`          | CI or “just try the bot” without installing a database.             |
 
 ---
 
-## Docker workflow
+## Docker
 
 ```bash
 cp .env.example .env
-# populate DISCORD_TOKEN + DISCORD_CLIENT_ID (and optional guild id)
+# set DISCORD_TOKEN, DISCORD_CLIENT_ID, and DATABASE if needed
 docker compose up --build
 ```
 
-Compose brings up **MongoDB 7** with a health check and wires `MONGODB_URI` to the bot service automatically. Volumes persist database data across restarts.
-
-To build the image alone:
-
-```bash
-docker build -t vortex-bot .
-docker run --env-file .env vortex-bot
-```
+Compose includes **MongoDB 7** with a health check. To build only the bot image: `docker build -t vortex-bot .`
 
 ---
 
 ## Example slash commands
 
-| Command                      | Description                                                                                                           |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `/ping latency`              | Shows gateway ping (subcommand demo).                                                                                 |
-| `/ping echo`                 | Echoes a string option (modal-less interaction demo).                                                                 |
-| `/vortex about`              | Prints runtime + database mode metadata.                                                                              |
-| `/vortex components2`        | Ephemeral reply built with **Components v2** (`MessageFlags.IsComponentsV2` + top-level `Container` / `TextDisplay`). |
-| `/poll create` / `/poll end` | Native **message polls** (`PollLayoutType.Default`) — moderator-gated showcase.                                       |
-| `/premium status`            | Lists active SKU IDs on the interaction + configured `PREMIUM_SKU_IDS`.                                               |
-| `/premium demo`              | Subcommand-level check using `interaction.entitlements` + your SKU list.                                              |
-| `/vip`                       | Top-level example of `BotCommand.requiresPaidSkus` (handler gate before `execute`).                                   |
+| Command                             | Description                                                |
+| ----------------------------------- | ---------------------------------------------------------- |
+| `/ping latency` / `/ping echo`      | Subcommands + options demo                                 |
+| `/vortex about`                     | Runtime / DB mode                                          |
+| `/vortex components2`               | **Components v2** (top-level container + `IsComponentsV2`) |
+| `/poll create` / `/poll end`        | Native Discord polls                                       |
+| `/premium status` / `/premium demo` | Entitlements vs configured SKUs                            |
+| `/vip`                              | `requiresPaidSkus` gate example                            |
 
-Add new commands by cloning `examples/ping-command.example.ts` into `src/commands/` and re-running `npm run register-commands` (or rely on guild-scoped auto registration during development).
+Add commands by copying `examples/ping-command.example.ts` into `src/commands/`, then register (guild env or `npm run register-commands`).
 
 ---
 
 ## Monetization (Application Entitlements)
 
-Vortex tracks **`entitlementCreate`**, **`entitlementUpdate`**, and **`entitlementDelete`** in `src/services/entitlements.ts`, normalizing each record to `{ id, skuId, userId, guildId, type, deleted, consumed, isActive }` for logs and future webhooks.
-
-- Set **`PREMIUM_SKU_IDS`** (comma-separated snowflakes) to the SKU(s) you sell in the Discord Developer Portal.
-- **`DEV_ENTITLEMENT_BYPASS=true`** (non-production only) lets you test `/vip` without live entitlements.
-- **`interaction.entitlements`** is the source of truth for **slash gating**; the gateway cache is for observability and later HTTP flows.
+- Gateway: `entitlementCreate`, `entitlementUpdate`, `entitlementDelete` → `src/services/entitlements.ts`.
+- Set **`PREMIUM_SKU_IDS`** to your Discord SKU snowflakes.
+- **`DEV_ENTITLEMENT_BYPASS=true`** — **development only**; bypasses premium checks for testing.
+- Slash gating uses **`interaction.entitlements`** (authoritative for that interaction).
 
 ---
 
-## Optional Next.js dashboard
+## Optional dashboard (Next.js)
 
-The `dashboard/` app is a **shadcn/ui + Tailwind v4** control plane with a **password gate** (JWT session cookie), **mobile navigation**, and first-class stubs for **Stripe billing** and **Discord entitlement telemetry**.
+Password-protected UI under `dashboard/` — billing, telemetry, integrations, settings.
 
-### What ships in the UI
+### UI routes
 
-| Route                     | Purpose                                                                                                         |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `/dashboard`              | Overview cards fed by the latest bot ingest (guild count, active entitlements).                                 |
-| `/dashboard/telemetry`    | Entitlement table + ingest activity log.                                                                        |
-| `/dashboard/billing`      | Discord SKU list (`DISCORD_PREMIUM_SKU_IDS`) + Stripe checkout / customer portal buttons when env vars are set. |
-| `/dashboard/integrations` | Bot ingest, **Postgres migrations**, Stripe webhook URL, **operator REST** examples.                            |
-| `/dashboard/settings`     | Non-secret env coverage checklist.                                                                              |
+| Route                     | Purpose                                                       |
+| ------------------------- | ------------------------------------------------------------- |
+| `/dashboard`              | Overview (ingest snapshot, guild count, active entitlements). |
+| `/dashboard/telemetry`    | Entitlement rows + activity.                                  |
+| `/dashboard/billing`      | SKUs, Stripe checkout / portal, webhook notes.                |
+| `/dashboard/integrations` | Ingest, Postgres, Stripe webhook, operator `curl` examples.   |
+| `/dashboard/settings`     | Which env vars are set (no secret values).                    |
 
-### Control plane persistence (Postgres)
+### Postgres control plane (recommended for real deploys)
 
-When **`CONTROL_PLANE_DATABASE_URL`** is set, the dashboard stores:
-
-- **Bot ingest snapshots** (`bot_ingest_snapshots`) plus **audit rows** (`audit_log`).
-- **Stripe webhook idempotency** (`stripe_webhook_events` keyed by `event.id`) and **fulfillment rows** (`fulfillment_records`).
-- **Operator API keys** (`service_api_keys`, SHA-256 hashed secrets).
-
-Run migrations from `dashboard/`:
+Set **`CONTROL_PLANE_DATABASE_URL`** in `dashboard/.env.local`, then from `dashboard/`:
 
 ```bash
 npm run db:migrate
+npm run operator:create-key -- "my-machine"   # prints API key once; default scope telemetry:read
 ```
 
-Create a machine token (prints the secret once):
+Stores: ingest snapshots, `audit_log`, Stripe webhook dedupe (`stripe_webhook_events`), `fulfillment_records`, hashed **operator API keys**.
 
-```bash
-npm run operator:create-key -- "ci-runner"
-```
+Without Postgres, telemetry falls back to **in-memory** (OK for a single local process only).
 
-Without `CONTROL_PLANE_DATABASE_URL`, telemetry still works in **memory-only** mode for quick local demos (not suitable for Stripe webhooks or horizontal scale).
+### Stripe
 
-### Stripe webhook + fulfillment hooks
+- **`POST /api/webhooks/stripe`** — requires Postgres + `STRIPE_WEBHOOK_SECRET`; idempotent by Stripe `event.id`.
+- Handlers: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted` — extend `dashboard/lib/fulfillment-stripe.ts` for Discord REST.
+- Checkout session metadata (allowlisted): `discord_user_id`, `discord_guild_id`, `sku_id` — send JSON body from an authenticated client to `/api/billing/checkout` if you need them.
 
-1. Set **`STRIPE_WEBHOOK_SECRET`** from the Stripe CLI or Dashboard signing secret.
-2. Register **`POST /api/webhooks/stripe`** on your public dashboard origin.
-3. Ensure Checkout Sessions include metadata keys **`discord_user_id`** (and optionally **`discord_guild_id`**, **`sku_id`**) — the checkout API accepts these when posted as JSON alongside the dashboard session cookie.
+### Operator API
 
-Handled events (idempotent): **`checkout.session.completed`**, **`customer.subscription.updated`**, **`customer.subscription.deleted`**. Extend `dashboard/lib/fulfillment-stripe.ts` to call Discord REST for real grants/revokes.
+| Endpoint                         | Auth                                   |
+| -------------------------------- | -------------------------------------- |
+| `GET /api/operator/v1/health`    | `Authorization: Bearer <operator-key>` |
+| `GET /api/operator/v1/telemetry` | Same + scope `telemetry:read`          |
 
-### Operator REST (`Bearer` service keys)
+### Bot → dashboard ingest
 
-| Endpoint                         | Scope                  |
-| -------------------------------- | ---------------------- |
-| `GET /api/operator/v1/health`    | Any valid operator key |
-| `GET /api/operator/v1/telemetry` | `telemetry:read`       |
+1. Same **`BOT_INGEST_SECRET`** in root `.env` and `dashboard/.env.local`.
+2. **`DASHBOARD_INGEST_URL`** on the bot = your dashboard base + `/api/integrations/bot-ingest`.
+3. Worker sends snapshots on **ready** and after entitlement changes (debounced).
 
-### Bot ↔ dashboard bridge
-
-1. Set **`BOT_INGEST_SECRET`** to the same random string in **`dashboard/.env.local`** and the worker **`.env`**.
-2. Set **`DASHBOARD_INGEST_URL`** on the worker to your dashboard origin + `/api/integrations/bot-ingest`.
-3. Restart the worker. On **`ready`** and after **entitlement** gateway events (debounced ~2s), the bot POSTs a JSON snapshot (`guildCount`, `premiumSkuIds`, `entitlements[]`, `nodeEnv`, `reason`).
-
-### Local run
+### Run the dashboard locally
 
 ```bash
 cd dashboard
 cp .env.example .env.local
-# set DASHBOARD_PASSWORD (8+ chars), DASHBOARD_SESSION_SECRET (32+ chars),
-# optional CONTROL_PLANE_DATABASE_URL, BOT_INGEST_SECRET, Stripe keys, STRIPE_WEBHOOK_SECRET
+# DASHBOARD_PASSWORD (8+ chars), DASHBOARD_SESSION_SECRET (32+ chars)
+# optional: CONTROL_PLANE_DATABASE_URL, BOT_INGEST_SECRET, Stripe keys, STRIPE_WEBHOOK_SECRET
 npm install
-npm run db:migrate
-npm run dev
+npm run db:migrate    # skip if you are not using Postgres yet
+npm run dev           # http://localhost:3100
 ```
 
-Open `http://localhost:3100` for the marketing landing, `/login` to authenticate, and `/dashboard` for the operator console.
-
-If `next build` warns about **multiple lockfiles**, remove any stray `package-lock.json` in a **parent directory** of this repo (for example under your user profile). Next may otherwise infer the wrong workspace root. The dashboard pins `outputFileTracingRoot` to the `dashboard/` folder so routes resolve reliably.
+**Build note:** If `next build` warns about **multiple lockfiles**, remove stray `package-lock.json` files in **parent folders** of this repo (e.g. under your user profile). The dashboard sets `outputFileTracingRoot` to the `dashboard/` folder for stable route resolution.
 
 ---
 
 ## PM2 / process managers
 
-`npm start` emits structured logs and listens for `SIGINT` / `SIGTERM`. A minimal PM2 ecosystem file:
-
 ```bash
+npm run build
 pm2 start dist/index.js --name vortex-bot -i 1
 ```
 
-Pair PM2 with Docker only if you know why you need both — Compose or Kubernetes already supervises the process.
+The bot handles `SIGINT` / `SIGTERM` for clean shutdown.
+
+---
+
+## Troubleshooting
+
+| Symptom                                   | What to check                                                                                                                                               |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Slash commands never appear**           | Set `DISCORD_GUILD_ID` and restart, or run `npm run register-commands`. Wait up to ~1h for global commands. Ensure invite includes `applications.commands`. |
+| **`npm run dev` errors on Mongo**         | Set `DATABASE_MODE=sqlite` or `mock`, or install Mongo and set `MONGODB_URI`.                                                                               |
+| **Member join / permission fetch issues** | `INTENT_GUILD_MEMBERS` + portal “Server Members Intent” must both match.                                                                                    |
+| **Poll vote / AutoMod events missing**    | Matching `INTENT_*` flags and portal toggles for polls / AutoMod.                                                                                           |
+| **Dashboard `next build` fails**          | Stray `package-lock.json` above the repo; use Node 20+.                                                                                                     |
+| **Stripe webhook returns 503**            | Set `CONTROL_PLANE_DATABASE_URL` and run `npm run db:migrate` in `dashboard/`.                                                                              |
+| **Ingest 401**                            | Same `BOT_INGEST_SECRET` in bot `.env` and `dashboard/.env.local`; URL must end with `/api/integrations/bot-ingest`.                                        |
 
 ---
 
 ## Contributing
 
-1. Fork the repository and create a feature branch (`feat/<topic>`).
-2. Run `npm run lint` before opening a pull request.
-3. Prefer **conventional commits** (`feat:`, `fix:`, `chore:`, `docs:`) so the history stays readable.
-4. Describe the motivation + testing notes in the PR body.
+1. Fork and branch (`feat/...` / `fix/...`).
+2. Run **`npm run lint`** (and `cd dashboard && npm run lint` if you touched the dashboard).
+3. Use **conventional commits** (`feat:`, `fix:`, `docs:`).
+4. Do not commit secrets — use `.env` / CI secrets.
 
-Please keep secrets out of Git — use `.env` locally and CI secret stores in automation.
+**GitHub discoverability:** In the repo **About** box, add topics such as `discord`, `discord-js`, `typescript`, `bot-framework`, `nextjs`, `stripe`, `postgresql`, `mongodb`, `docker`, `opensource`.
 
 ---
 
 ## License
 
-Distributed under the MIT License. See [`LICENSE`](LICENSE) for full text.
+[MIT License](LICENSE).
 
 ---
 
 ## Acknowledgements
 
-Built on top of the [`discord.js`](https://discord.js.org/) ecosystem and the persistence libraries (`mongoose`, `better-sqlite3`) commonly used in long-running Discord services.
+Built with [discord.js](https://discord.js.org/), [mongoose](https://mongoosejs.com/), [better-sqlite3](https://github.com/WiseLibs/better-sqlite3), and [Next.js](https://nextjs.org/).
