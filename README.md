@@ -63,8 +63,8 @@
 1. **Clone and enter the repo**
 
    ```bash
-   git clone https://github.com/<your-org>/vortex-bot-template.git
-   cd vortex-bot-template
+   git clone https://github.com/ampedwastaken/Vortex-Bot-Template.git
+   cd Vortex-Bot-Template
    ```
 
 2. **Create env file from the template**
