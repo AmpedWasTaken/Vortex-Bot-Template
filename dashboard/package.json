@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start --port 3100",
     "lint": "next lint",
-    "db:migrate": "tsx --env-file=.env.local scripts/migrate.ts",
+    "db:migrate": "tsx scripts/migrate.ts",
     "operator:create-key": "tsx --env-file=.env.local scripts/create-operator-key.ts"
   },
   "dependencies": {

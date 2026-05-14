@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Activity, CreditCard, LayoutGrid, Menu, Plug, Settings } from 'lucide-react';
+import { Activity, Building2, CreditCard, LayoutGrid, Menu, Plug, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 
 const links = [
   { href: '/dashboard', label: 'Overview', icon: LayoutGrid },
+  { href: '/dashboard/guilds', label: 'Guilds', icon: Building2 },
   { href: '/dashboard/telemetry', label: 'Telemetry', icon: Activity },
   { href: '/dashboard/billing', label: 'Billing', icon: CreditCard },
   { href: '/dashboard/integrations', label: 'Integrations', icon: Plug },

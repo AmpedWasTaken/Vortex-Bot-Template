@@ -14,11 +14,26 @@ export type IngestEntitlement = {
   isActive: boolean;
 };
 
+export type IngestGuild = {
+  id: string;
+  name: string;
+  icon: string | null;
+};
+
+export type IngestGuildSettings = {
+  guildId: string;
+  modRoleIds: string[];
+  adminRoleIds: string[];
+  logChannelId?: string;
+};
+
 export type BotTelemetrySnapshot = {
   receivedAt: string;
   guildCount: number;
   premiumSkuIds: string[];
   entitlements: IngestEntitlement[];
+  guilds: IngestGuild[];
+  guildSettings: IngestGuildSettings[];
   nodeEnv?: string;
   reason?: string;
 };
@@ -42,6 +57,46 @@ function recordMemory(next: Omit<BotTelemetrySnapshot, 'receivedAt'>): void {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+function parseGuilds(value: unknown): IngestGuild[] {
+  if (!Array.isArray(value)) return [];
+  const out: IngestGuild[] = [];
+  for (const row of value.slice(0, 200)) {
+    if (!isRecord(row)) continue;
+    const id = row['id'];
+    const name = row['name'];
+    const rawIcon = row['icon'];
+    const icon = rawIcon == null ? null : typeof rawIcon === 'string' ? rawIcon : null;
+    if (typeof id !== 'string' || typeof name !== 'string') continue;
+    out.push({ id, name, icon });
+  }
+  return out;
+}
+
+function parseGuildSettings(value: unknown): IngestGuildSettings[] {
+  if (!Array.isArray(value)) return [];
+  const out: IngestGuildSettings[] = [];
+  for (const row of value.slice(0, 200)) {
+    if (!isRecord(row)) continue;
+    const guildId = row['guildId'];
+    const modRoleIds = row['modRoleIds'];
+    const adminRoleIds = row['adminRoleIds'];
+    const logChannelId = row['logChannelId'];
+    if (typeof guildId !== 'string') continue;
+    if (!Array.isArray(modRoleIds) || !modRoleIds.every((x) => typeof x === 'string')) continue;
+    if (!Array.isArray(adminRoleIds) || !adminRoleIds.every((x) => typeof x === 'string')) continue;
+    const entry: IngestGuildSettings = {
+      guildId,
+      modRoleIds: [...modRoleIds],
+      adminRoleIds: [...adminRoleIds],
+    };
+    if (typeof logChannelId === 'string') {
+      entry.logChannelId = logChannelId;
+    }
+    out.push(entry);
+  }
+  return out;
 }
 
 export function parseIngestBody(body: unknown): Omit<BotTelemetrySnapshot, 'receivedAt'> | null {
@@ -83,10 +138,15 @@ export function parseIngestBody(body: unknown): Omit<BotTelemetrySnapshot, 'rece
     normalized.push({ id, skuId, userId, guildId, type, deleted, consumed, isActive });
   }
 
+  const guilds = parseGuilds(body['guilds']);
+  const guildSettings = parseGuildSettings(body['guildSettings']);
+
   return {
     guildCount,
     premiumSkuIds,
     entitlements: normalized,
+    guilds,
+    guildSettings,
     nodeEnv: typeof nodeEnv === 'string' ? nodeEnv : undefined,
     reason: typeof reason === 'string' ? reason : undefined,
   };
@@ -98,8 +158,18 @@ function parseEntitlementsJson(value: unknown): IngestEntitlement[] {
     guildCount: 0,
     premiumSkuIds: [],
     entitlements: value,
+    guilds: [],
+    guildSettings: [],
   });
   return parsed?.entitlements ?? [];
+}
+
+function parseGuildsJson(value: unknown): IngestGuild[] {
+  return parseGuilds(value);
+}
+
+function parseGuildSettingsJson(value: unknown): IngestGuildSettings[] {
+  return parseGuildSettings(value);
 }
 
 async function readLatestFromDb(sql: PgClient): Promise<BotTelemetrySnapshot | null> {
@@ -111,9 +181,11 @@ async function readLatestFromDb(sql: PgClient): Promise<BotTelemetrySnapshot | n
       premium_sku_ids: string[] | null;
       node_env: string | null;
       entitlements: unknown;
+      guilds: unknown;
+      guild_settings: unknown;
     }[]
   >`
-    SELECT received_at, reason, guild_count, premium_sku_ids, node_env, entitlements
+    SELECT received_at, reason, guild_count, premium_sku_ids, node_env, entitlements, guilds, guild_settings
     FROM bot_ingest_snapshots
     ORDER BY id DESC
     LIMIT 1
@@ -125,6 +197,8 @@ async function readLatestFromDb(sql: PgClient): Promise<BotTelemetrySnapshot | n
     guildCount: row.guild_count,
     premiumSkuIds: row.premium_sku_ids ?? [],
     entitlements: parseEntitlementsJson(row.entitlements),
+    guilds: parseGuildsJson(row.guilds),
+    guildSettings: parseGuildSettingsJson(row.guild_settings),
     nodeEnv: row.node_env ?? undefined,
     reason: row.reason ?? undefined,
   };
@@ -161,14 +235,16 @@ export async function recordBotIngest(
 
   await sql.begin(async (tx) => {
     await tx`
-      INSERT INTO bot_ingest_snapshots (received_at, reason, guild_count, premium_sku_ids, node_env, entitlements)
+      INSERT INTO bot_ingest_snapshots (received_at, reason, guild_count, premium_sku_ids, node_env, entitlements, guilds, guild_settings)
       VALUES (
         ${receivedAt},
         ${next.reason ?? null},
         ${next.guildCount},
         ${tx.array(next.premiumSkuIds)},
         ${next.nodeEnv ?? null},
-        ${tx.json(next.entitlements as unknown as JSONValue)}
+        ${tx.json(next.entitlements as unknown as JSONValue)},
+        ${tx.json(next.guilds as unknown as JSONValue)},
+        ${tx.json(next.guildSettings as unknown as JSONValue)}
       )
     `;
     await insertAudit(
@@ -194,4 +270,17 @@ export async function getBotTelemetry(): Promise<{
   const snapshot = await readLatestFromDb(sql);
   const activity = await readActivityFromDb(sql);
   return { snapshot, activity, persistence: 'postgres' };
+}
+
+/** Latest guild directory from snapshot (ingest-capped). */
+export function snapshotGuilds(snapshot: BotTelemetrySnapshot | null): readonly IngestGuild[] {
+  return snapshot?.guilds ?? [];
+}
+
+export function snapshotGuildSettingsFor(
+  snapshot: BotTelemetrySnapshot | null,
+  guildId: string,
+): IngestGuildSettings | null {
+  const rows = snapshot?.guildSettings ?? [];
+  return rows.find((r) => r.guildId === guildId) ?? null;
 }

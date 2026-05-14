@@ -1,5 +1,11 @@
 import type { ReactElement } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  getDashboardAuthModes,
+  isDashboardSessionSecretConfigured,
+  isDiscordLoginOperational,
+  isDiscordOAuthConfigured,
+} from '@/lib/auth-modes';
 import { isDashboardPasswordConfigured } from '@/lib/dashboard-password';
 import { isEnvSet } from '@/lib/env-status';
 
@@ -10,9 +16,12 @@ function flag(on: boolean): string {
 }
 
 export default function SettingsPage(): ReactElement {
+  const authModes = getDashboardAuthModes().join(', ');
   const rows = [
-    { label: 'Dashboard password', ok: isDashboardPasswordConfigured() },
-    { label: 'Session signing secret', ok: isEnvSet('DASHBOARD_SESSION_SECRET') },
+    { label: 'Dashboard password (password mode)', ok: isDashboardPasswordConfigured() },
+    { label: 'Session signing secret (32+ chars)', ok: isDashboardSessionSecretConfigured() },
+    { label: 'Discord OAuth (id + secret + redirect)', ok: isDiscordOAuthConfigured() },
+    { label: 'Discord sign-in operational', ok: isDiscordLoginOperational() },
     { label: 'Control plane Postgres URL', ok: isEnvSet('CONTROL_PLANE_DATABASE_URL') },
     { label: 'Bot ingest secret', ok: isEnvSet('BOT_INGEST_SECRET') },
     { label: 'Stripe secret key', ok: isEnvSet('STRIPE_SECRET_KEY') },
@@ -20,6 +29,9 @@ export default function SettingsPage(): ReactElement {
     { label: 'Stripe price (checkout)', ok: isEnvSet('STRIPE_PRICE_ID') },
     { label: 'Stripe customer (portal)', ok: isEnvSet('STRIPE_CUSTOMER_ID') },
     { label: 'Discord premium SKUs (display)', ok: isEnvSet('DISCORD_PREMIUM_SKU_IDS') },
+    { label: 'Discord bot token (owner/role gates)', ok: isEnvSet('DISCORD_BOT_TOKEN') },
+    { label: 'Discord user allowlist', ok: isEnvSet('DASHBOARD_DISCORD_USER_IDS') },
+    { label: 'Access guild + roles (role gate)', ok: isEnvSet('DASHBOARD_ACCESS_GUILD_ID') && isEnvSet('DASHBOARD_ACCESS_ROLE_IDS') },
   ];
 
   return (
@@ -35,7 +47,10 @@ export default function SettingsPage(): ReactElement {
       <Card>
         <CardHeader>
           <CardTitle>Environment coverage</CardTitle>
-          <CardDescription>Quick audit for local operators.</CardDescription>
+          <CardDescription>
+          Quick audit for local operators. Effective auth modes:{' '}
+          <span className="font-mono text-foreground">{authModes}</span>.
+        </CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-sm">

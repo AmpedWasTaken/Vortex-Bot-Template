@@ -83,13 +83,16 @@ export default async function DashboardHome(): Promise<ReactElement> {
         </CardHeader>
         <CardContent className="space-y-4 text-sm text-muted-foreground">
           <p>
-            Replace the password gate with Auth.js, Clerk, or your API gateway JWT. When
-            `CONTROL_PLANE_DATABASE_URL` is set, ingest snapshots, Stripe webhook idempotency, audit
-            rows, and operator API keys are stored in Postgres; otherwise telemetry falls back to
-            in-memory mode for local demos only.
+            Use <span className="font-mono text-foreground">DASHBOARD_AUTH_MODES</span> to enable Discord
+            OAuth alongside or instead of the shared password. When <span className="font-mono">CONTROL_PLANE_DATABASE_URL</span>{' '}
+            is set, ingest snapshots, Stripe webhook idempotency, audit rows, and operator API keys are
+            stored in Postgres; otherwise telemetry falls back to in-memory mode for local demos only.
           </p>
           <Separator />
           <div className="flex flex-wrap gap-2">
+            <Button asChild variant="secondary" size="sm">
+              <Link href="/dashboard/guilds">Browse guilds</Link>
+            </Button>
             <Button asChild variant="secondary" size="sm">
               <Link href="/dashboard/telemetry">Open telemetry</Link>
             </Button>

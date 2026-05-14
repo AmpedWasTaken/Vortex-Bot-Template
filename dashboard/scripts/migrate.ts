@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import postgres from 'postgres';
@@ -6,7 +6,33 @@ import postgres from 'postgres';
 const dashboardRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const migrationsDir = path.join(dashboardRoot, 'db', 'migrations');
 
+/** Load `dashboard/.env.local` when `CONTROL_PLANE_DATABASE_URL` is not already set (Docker supplies env directly). */
+function loadLocalEnvIfNeeded(): void {
+  if (process.env['CONTROL_PLANE_DATABASE_URL']?.trim()) return;
+  const envPath = path.join(dashboardRoot, '.env.local');
+  if (!existsSync(envPath)) return;
+  const text = readFileSync(envPath, 'utf8');
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq <= 0) continue;
+    const key = trimmed.slice(0, eq).trim();
+    let val = trimmed.slice(eq + 1).trim();
+    if (
+      (val.startsWith('"') && val.endsWith('"')) ||
+      (val.startsWith("'") && val.endsWith("'"))
+    ) {
+      val = val.slice(1, -1);
+    }
+    if (process.env[key] === undefined) {
+      process.env[key] = val;
+    }
+  }
+}
+
 async function main(): Promise<void> {
+  loadLocalEnvIfNeeded();
   const url = process.env['CONTROL_PLANE_DATABASE_URL']?.trim();
   if (!url) {
     throw new Error('CONTROL_PLANE_DATABASE_URL is not set.');

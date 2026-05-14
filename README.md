@@ -23,7 +23,7 @@
 | A **real project structure** (not one giant `index.js`) | Typed config, context, handlers, `src/commands` + `src/events` auto-loaders            |
 | **Monetization** aligned with Discord                   | Entitlement service, `/vip` + `/premium` samples, gateway entitlement events           |
 | **Modern Discord API** demos                            | Native polls (`/poll`), Components v2 (`/vortex components2`), AutoMod execution event |
-| **Operator / SaaS surface**                             | Optional `dashboard/` with Postgres, Stripe webhooks, bot telemetry ingest, API keys   |
+| **Operator / SaaS surface**                             | Optional `dashboard/` with Postgres, Stripe webhooks, **Discord OAuth**, guild ingest mirror, bot telemetry ingest, API keys   |
 
 ---
 
@@ -121,7 +121,7 @@
 | **Monetization**       | Entitlement cache + `/premium`, `/vip` patterns; dashboard ingest optional.                           |
 | **Modern API samples** | `/poll`, `/vortex components2`, AutoMod execution event, poll vote events.                            |
 | **Intents**            | Env-driven toggles in `src/config/intents.ts` (documented + README matrix).                           |
-| **Dashboard**          | Password gate, telemetry, Stripe checkout/portal + **webhooks**, **Postgres**, **operator API keys**. |
+| **Dashboard**          | Password and/or **Discord OAuth**, telemetry, Stripe webhooks, **guild directory** ingest, Postgres, operator API keys. |
 | **Deploy**             | Dockerfile + `docker-compose.yml` (bot + Mongo).                                                      |
 
 ---
@@ -147,6 +147,7 @@
 ├── assets/
 │   └── vortex-banner.svg          # README banner
 ├── dashboard/                     # Optional Next.js control plane
+│   ├── Dockerfile                 # Production image (Next standalone)
 │   ├── db/migrations/             # Postgres schema (control plane)
 │   ├── app/                       # Routes + API (Stripe webhook, operator API, …)
 │   └── scripts/                   # db:migrate, operator:create-key
@@ -245,13 +246,39 @@ Enable the same toggles under **Bot → Privileged Gateway Intents** in the [Dev
 
 ## Docker
 
+### Bot + Mongo only (minimal)
+
 ```bash
 cp .env.example .env
 # set DISCORD_TOKEN, DISCORD_CLIENT_ID, and DATABASE if needed
-docker compose up --build
+docker compose up --build mongo bot
 ```
 
-Compose includes **MongoDB 7** with a health check. To build only the bot image: `docker build -t vortex-bot .`
+This starts **MongoDB 7** and the **bot** (same as earlier template behavior). To build only the bot image: `docker build -t vortex-bot .`
+
+### Full stack: bot + Mongo + Postgres + dashboard
+
+Compose can run the **Next.js control plane** next to the worker. Services: `mongo`, `postgres`, `dashboard` (Next standalone on port **3100**), `dashboard-migrate` (one-off helper), and `bot` (points ingest at `http://dashboard:3100/api/integrations/bot-ingest` by default).
+
+1. Copy env and set **`DISCORD_TOKEN`** / **`DISCORD_CLIENT_ID`** in `.env` (same as local dev).
+2. **Apply Postgres migrations once** (creates ingest + Stripe tables):
+
+   ```bash
+   docker compose up -d postgres
+   docker compose run --rm dashboard-migrate
+   ```
+
+3. Start everything:
+
+   ```bash
+   docker compose up --build -d
+   ```
+
+4. Open **http://localhost:3100/login** — default compose uses **`DASHBOARD_PASSWORD`** / **`DASHBOARD_SESSION_SECRET`** / **`BOT_INGEST_SECRET`** (override all three in `.env` for anything beyond local demos).
+
+**OAuth in Docker:** register redirect **`http://localhost:3100/api/auth/discord/callback`** (or your public URL) in the Discord Developer Portal and set `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_OAUTH_REDIRECT_URI`, and `DASHBOARD_AUTH_MODES=password,discord` in the environment for the `dashboard` service (see [`dashboard/.env.example`](dashboard/.env.example)).
+
+If root **`.env`** defines **`BOT_INGEST_SECRET`**, it overrides the compose default so the bot and dashboard stay aligned.
 
 ---
 
@@ -281,17 +308,25 @@ Add commands by copying `examples/ping-command.example.ts` into `src/commands/`,
 
 ## Optional dashboard (Next.js)
 
-Password-protected UI under `dashboard/` — billing, telemetry, integrations, settings.
+Auth modes are controlled by **`DASHBOARD_AUTH_MODES`** in `dashboard/.env.local` (comma-separated):
+
+- **`password`** — shared password (demo / staging).
+- **`discord`** — Discord OAuth2 (`identify` by default; add **`guilds`** in `DISCORD_OAUTH_SCOPES` when using the bot-guild-owner gate). Optional gates: **`DASHBOARD_DISCORD_USER_IDS`**, **`DASHBOARD_DISCORD_REQUIRE_BOT_GUILD_OWNER`**, **`DASHBOARD_ACCESS_GUILD_ID`** + **`DASHBOARD_ACCESS_ROLE_IDS`** (requires **`DISCORD_BOT_TOKEN`** on the dashboard for REST checks).
+
+Password-protected or Discord-signed-in UI under `dashboard/` — billing, telemetry, guild mirror, integrations, settings.
 
 ### UI routes
 
-| Route                     | Purpose                                                       |
-| ------------------------- | ------------------------------------------------------------- |
-| `/dashboard`              | Overview (ingest snapshot, guild count, active entitlements). |
-| `/dashboard/telemetry`    | Entitlement rows + activity.                                  |
-| `/dashboard/billing`      | SKUs, Stripe checkout / portal, webhook notes.                |
-| `/dashboard/integrations` | Ingest, Postgres, Stripe webhook, operator `curl` examples.   |
-| `/dashboard/settings`     | Which env vars are set (no secret values).                    |
+| Route                         | Purpose                                                                 |
+| ----------------------------- | ------------------------------------------------------------------------- |
+| `/login`                      | Password and/or **Continue with Discord** (see auth modes above).         |
+| `/dashboard`                  | Overview (ingest snapshot, guild count, active entitlements).           |
+| `/dashboard/guilds`           | Guild directory from latest ingest (capped).                             |
+| `/dashboard/guilds/[id]`     | Read-only settings mirror + entitlements for one guild.                  |
+| `/dashboard/telemetry`        | Entitlement rows + activity.                                             |
+| `/dashboard/billing`          | SKUs, Stripe checkout / portal, webhook notes.                           |
+| `/dashboard/integrations`     | Ingest, Postgres, Stripe webhook, operator `curl` examples.              |
+| `/dashboard/settings`         | Which env vars are set (no secret values).                               |
 
 ### Postgres control plane (recommended for real deploys)
 
@@ -323,15 +358,16 @@ Without Postgres, telemetry falls back to **in-memory** (OK for a single local p
 
 1. Same **`BOT_INGEST_SECRET`** in root `.env` and `dashboard/.env.local`.
 2. **`DASHBOARD_INGEST_URL`** on the bot = your dashboard base + `/api/integrations/bot-ingest`.
-3. Worker sends snapshots on **ready** and after entitlement changes (debounced).
+3. Worker sends JSON on **ready** and after entitlement changes (debounced): guild count, premium SKU ids, entitlement rows, **guild directory** (id, name, icon; capped at 200), and **per-guild settings** mirrors (`modRoleIds`, `adminRoleIds`, `logChannelId`).
 
 ### Run the dashboard locally
 
 ```bash
 cd dashboard
 cp .env.example .env.local
+# DASHBOARD_AUTH_MODES=password          # or password,discord — see README
 # DASHBOARD_PASSWORD (8+ chars), DASHBOARD_SESSION_SECRET (32+ chars)
-# optional: CONTROL_PLANE_DATABASE_URL, BOT_INGEST_SECRET, Stripe keys, STRIPE_WEBHOOK_SECRET
+# optional: CONTROL_PLANE_DATABASE_URL, BOT_INGEST_SECRET, Discord OAuth vars, Stripe keys, STRIPE_WEBHOOK_SECRET
 npm install
 npm run db:migrate    # skip if you are not using Postgres yet
 npm run dev           # http://localhost:3100

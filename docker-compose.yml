@@ -13,6 +13,62 @@ services:
       retries: 5
       start_period: 20s
 
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: vortex
+      POSTGRES_PASSWORD: vortex
+      POSTGRES_DB: vortex_cp
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U vortex -d vortex_cp']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3100:3100'
+    environment:
+      NODE_ENV: production
+      CONTROL_PLANE_DATABASE_URL: postgresql://vortex:vortex@postgres:5432/vortex_cp
+      BOT_INGEST_SECRET: ${BOT_INGEST_SECRET:-dev-change-me-bot-ingest-secret}
+      DASHBOARD_SESSION_SECRET: ${DASHBOARD_SESSION_SECRET:-vortex-dashboard-session-secret-min-32chars}
+      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD:-change-me-please}
+      DASHBOARD_AUTH_MODES: ${DASHBOARD_AUTH_MODES:-password}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
+      DISCORD_OAUTH_REDIRECT_URI: ${DISCORD_OAUTH_REDIRECT_URI:-http://localhost:3100/api/auth/discord/callback}
+      DISCORD_OAUTH_SCOPES: ${DISCORD_OAUTH_SCOPES:-identify}
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-}
+      DASHBOARD_DISCORD_USER_IDS: ${DASHBOARD_DISCORD_USER_IDS:-}
+      DASHBOARD_ACCESS_GUILD_ID: ${DASHBOARD_ACCESS_GUILD_ID:-}
+      DASHBOARD_ACCESS_ROLE_IDS: ${DASHBOARD_ACCESS_ROLE_IDS:-}
+      DASHBOARD_DISCORD_REQUIRE_BOT_GUILD_OWNER: ${DASHBOARD_DISCORD_REQUIRE_BOT_GUILD_OWNER:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  dashboard-migrate:
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - ./dashboard:/app
+    environment:
+      CONTROL_PLANE_DATABASE_URL: postgresql://vortex:vortex@postgres:5432/vortex_cp
+    command: ['sh', '-c', 'npm ci && npm run db:migrate']
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   bot:
     build: .
     restart: unless-stopped
@@ -21,9 +77,14 @@ services:
     environment:
       DATABASE_MODE: mongo
       MONGODB_URI: mongodb://mongo:27017/vortex_bot
+      DASHBOARD_INGEST_URL: http://dashboard:3100/api/integrations/bot-ingest
+      BOT_INGEST_SECRET: ${BOT_INGEST_SECRET:-dev-change-me-bot-ingest-secret}
     depends_on:
       mongo:
         condition: service_healthy
+      dashboard:
+        condition: service_started
 
 volumes:
   mongo_data:
+  postgres_data:

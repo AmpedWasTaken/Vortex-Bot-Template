@@ -2,14 +2,14 @@ import Link from 'next/link';
 import { cookies } from 'next/headers';
 import type { ReactElement, ReactNode } from 'react';
 import { redirect } from 'next/navigation';
-import { Activity, CreditCard, LayoutGrid, Plug, Settings } from 'lucide-react';
+import { Activity, Building2, CreditCard, LayoutGrid, Plug, Settings } from 'lucide-react';
 import { DashboardMobileNav } from '@/components/dashboard-mobile-nav';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { UserMenu } from '@/components/user-menu';
-import { SESSION_COOKIE, verifySessionToken } from '@/lib/session';
+import { SESSION_COOKIE, getDashboardPrincipal, verifySessionToken } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +23,7 @@ export default async function DashboardLayout({
   if (!(await verifySessionToken(token))) {
     redirect('/login?next=/dashboard');
   }
+  const principal = await getDashboardPrincipal(token);
 
   return (
     <div className="flex min-h-screen w-full bg-background">
@@ -45,6 +46,12 @@ export default async function DashboardLayout({
               <Link href="/dashboard">
                 <LayoutGrid className="size-4" />
                 Overview
+              </Link>
+            </Button>
+            <Button asChild variant="ghost" className="justify-start gap-2 text-sidebar-foreground">
+              <Link href="/dashboard/guilds">
+                <Building2 className="size-4" />
+                Guilds
               </Link>
             </Button>
             <Button asChild variant="ghost" className="justify-start gap-2 text-sidebar-foreground">
@@ -86,7 +93,7 @@ export default async function DashboardLayout({
               <p className="truncate text-sm font-semibold">Operator console</p>
             </div>
           </div>
-          <UserMenu />
+          <UserMenu principal={principal ?? { kind: 'password' }} />
         </header>
         <main className="flex-1 bg-gradient-to-b from-background to-muted/20 p-4 md:p-8">
           {children}

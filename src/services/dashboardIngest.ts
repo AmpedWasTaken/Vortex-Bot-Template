@@ -1,20 +1,45 @@
 import { getBotContext } from '../context/botContext.js';
+import type { GuildSettingsDoc } from '../types/index.js';
 import type { NormalizedEntitlement } from './entitlements.js';
+
+const MAX_INGEST_GUILDS = 200;
 
 let debounceTimer: NodeJS.Timeout | undefined;
 
-function buildPayload(): {
+export interface IngestGuildPayload {
+  id: string;
+  name: string;
+  icon: string | null;
+}
+
+async function buildPayload(): Promise<{
   guildCount: number;
   premiumSkuIds: string[];
   entitlements: NormalizedEntitlement[];
   nodeEnv: string;
-} {
-  const { client, config, entitlements } = getBotContext();
+  guilds: IngestGuildPayload[];
+  guildSettings: GuildSettingsDoc[];
+}> {
+  const { client, config, entitlements, guildSettings } = getBotContext();
+  const guildIds = [...client.guilds.cache.keys()].sort().slice(0, MAX_INGEST_GUILDS);
+  const guilds: IngestGuildPayload[] = guildIds.map((id) => {
+    const g = client.guilds.cache.get(id);
+    return {
+      id,
+      name: g?.name ?? 'Unknown',
+      icon: g?.icon ?? null,
+    };
+  });
+  const guildSettingsRows = await Promise.all(
+    guildIds.map(async (id) => guildSettings.getOrCreate(id)),
+  );
   return {
     guildCount: client.guilds.cache.size,
     premiumSkuIds: [...config.monetization.premiumSkuIds],
     entitlements: entitlements.snapshot().slice(0, 500),
     nodeEnv: config.nodeEnv,
+    guilds,
+    guildSettings: guildSettingsRows,
   };
 }
 
@@ -29,13 +54,14 @@ async function postIngest(reason: string): Promise<void> {
   }, 12_000);
 
   try {
+    const payload = await buildPayload();
     const res = await fetch(ingest.url, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${ingest.secret}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ ...buildPayload(), reason }),
+      body: JSON.stringify({ ...payload, reason }),
       signal: controller.signal,
     });
     if (!res.ok) {
