@@ -400,7 +400,7 @@ The bot handles `SIGINT` / `SIGTERM` for clean shutdown.
 | **Dashboard `next build` fails**          | Stray `package-lock.json` above the repo; use Node 20+.                                                                                                     |
 | **Stripe webhook returns 503**            | Set `CONTROL_PLANE_DATABASE_URL` and run `npm run db:migrate` in `dashboard/`.                                                                              |
 | **Ingest 401**                            | Same `BOT_INGEST_SECRET` in bot `.env` and `dashboard/.env.local`; URL must end with `/api/integrations/bot-ingest`.                                        |
-| **Ingest 500** (after adding guild ingest) | Run `npm run db:migrate` in `dashboard/` so Postgres has `guilds` / `guild_settings` on `bot_ingest_snapshots` (migration `002_guild_ingest.sql`). Response body may include a hint. |
+| **Postgres `password authentication failed` (28P01)** | Your `CONTROL_PLANE_DATABASE_URL` does not match the server on `localhost:5432`. Another Postgres may own that port, or credentials differ. Use the real user/password/DB, or start this repo’s `postgres` service from `docker compose` and match its `POSTGRES_*` values. |
 
 ---
 

@@ -90,7 +90,25 @@ async function main(): Promise<void> {
   await sql.end({ timeout: 5 });
 }
 
+function pgAuthHint(err: unknown): string | null {
+  if (typeof err !== 'object' || err === null) return null;
+  const code = 'code' in err && typeof (err as { code: unknown }).code === 'string' ? (err as { code: string }).code : '';
+  if (code !== '28P01') return null;
+  return [
+    '',
+    '[vortex] Postgres rejected the username/password (code 28P01).',
+    '  • If you use THIS repo\'s Docker Postgres: run `docker compose up -d postgres` and use:',
+    '      postgresql://vortex:vortex@localhost:5432/vortex_cp',
+    '    If port 5432 is already used by another Postgres, change the published port in docker-compose.yml',
+    '    or point CONTROL_PLANE_DATABASE_URL at that server\'s real user, password, and database.',
+    '  • If you use a local Postgres install: create a role/database or set the URL to match your actual credentials.',
+    '',
+  ].join('\n');
+}
+
 void main().catch((err: unknown) => {
   console.error(err);
+  const hint = pgAuthHint(err);
+  if (hint) console.error(hint);
   process.exitCode = 1;
 });
