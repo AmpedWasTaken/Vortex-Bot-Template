@@ -1,6 +1,6 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { Client } from 'discord.js';
 import type { BotEvent } from '../types/index.js';
 
@@ -13,7 +13,7 @@ export async function loadEventsFromDirectory(directory: string): Promise<BotEve
   for (const entry of entries) {
     if (!entry.isFile() || !eventFilePattern.test(entry.name)) continue;
     const filePath = join(directory, entry.name);
-    const mod = (await import(filePath)) as { event?: BotEvent };
+    const mod = (await import(pathToFileURL(filePath).href)) as { event?: BotEvent };
     const event = mod.event;
     if (!event?.name) continue;
     events.push(event);
