@@ -6,12 +6,10 @@ import postgres from 'postgres';
 const dashboardRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const migrationsDir = path.join(dashboardRoot, 'db', 'migrations');
 
-/** Load `dashboard/.env.local` when `CONTROL_PLANE_DATABASE_URL` is not already set (Docker supplies env directly). */
-function loadLocalEnvIfNeeded(): void {
-  if (process.env['CONTROL_PLANE_DATABASE_URL']?.trim()) return;
-  const envPath = path.join(dashboardRoot, '.env.local');
-  if (!existsSync(envPath)) return;
-  const text = readFileSync(envPath, 'utf8');
+/** Apply KEY=VAL lines from a dotenv-style file into `process.env` (does not override existing keys). */
+function applyEnvFile(filePath: string): void {
+  if (!existsSync(filePath)) return;
+  const text = readFileSync(filePath, 'utf8');
   for (const line of text.split('\n')) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
@@ -31,11 +29,29 @@ function loadLocalEnvIfNeeded(): void {
   }
 }
 
+/** Load `dashboard/.env.local` then `dashboard/.env` when URL not already in the environment. */
+function loadDashboardEnvFiles(): void {
+  if (process.env['CONTROL_PLANE_DATABASE_URL']?.trim()) return;
+  applyEnvFile(path.join(dashboardRoot, '.env.local'));
+  applyEnvFile(path.join(dashboardRoot, '.env'));
+}
+
 async function main(): Promise<void> {
-  loadLocalEnvIfNeeded();
+  loadDashboardEnvFiles();
   const url = process.env['CONTROL_PLANE_DATABASE_URL']?.trim();
   if (!url) {
-    throw new Error('CONTROL_PLANE_DATABASE_URL is not set.');
+    throw new Error(
+      [
+        'CONTROL_PLANE_DATABASE_URL is not set.',
+        '',
+        'Fix:',
+        '  1. Copy dashboard/.env.example → dashboard/.env.local',
+        '  2. Set CONTROL_PLANE_DATABASE_URL (e.g. postgresql://USER:PASS@localhost:5432/DBNAME for local Postgres)',
+        '  3. Run: npm run db:migrate',
+        '',
+        'Or export the variable in this shell before running migrate.',
+      ].join('\n'),
+    );
   }
 
   const sql = postgres(url, { max: 1, prepare: false });

@@ -367,9 +367,10 @@ cd dashboard
 cp .env.example .env.local
 # DASHBOARD_AUTH_MODES=password          # or password,discord — see README
 # DASHBOARD_PASSWORD (8+ chars), DASHBOARD_SESSION_SECRET (32+ chars)
-# optional: CONTROL_PLANE_DATABASE_URL, BOT_INGEST_SECRET, Discord OAuth vars, Stripe keys, STRIPE_WEBHOOK_SECRET
+# Set CONTROL_PLANE_DATABASE_URL in .env.local when using Postgres (required for db:migrate + ingest)
+# optional: BOT_INGEST_SECRET, Discord OAuth vars, Stripe keys, STRIPE_WEBHOOK_SECRET
 npm install
-npm run db:migrate    # skip if you are not using Postgres yet
+npm run db:migrate    # requires CONTROL_PLANE_DATABASE_URL; skip if not using Postgres
 npm run dev           # http://localhost:3100
 ```
 
